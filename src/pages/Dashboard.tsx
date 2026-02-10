@@ -1,14 +1,15 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { LogOut, Calendar } from 'lucide-react';
 import { useUser } from '@/contexts/UserContext';
 import { ACTIVITIES } from '@/lib/constants';
 import {
-  getTodayCheckin,
+  getCheckinForDate,
+  getCheckedDates,
   saveCheckin,
   calculateActivityScore,
   getStreak,
-  updateStreak,
+  recalculateStreak,
   getTotalScore,
   getBadges,
   checkAndUnlockBadges,
@@ -21,6 +22,7 @@ import { StreakDisplay } from '@/components/StreakDisplay';
 import { LevelProgress } from '@/components/LevelProgress';
 import { BadgeCollection } from '@/components/BadgeCollection';
 import { DailyQuiz } from '@/components/DailyQuiz';
+import { DateSelector } from '@/components/DateSelector';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 
@@ -29,31 +31,46 @@ export default function Dashboard() {
   const navigate = useNavigate();
 
   // State
+  const [selectedDate, setSelectedDate] = useState(getTodayDate());
+  const [checkedDates, setCheckedDates] = useState<string[]>([]);
   const [checkedActivities, setCheckedActivities] = useState<string[]>([]);
-  const [todayScore, setTodayScore] = useState(0);
+  const [selectedScore, setSelectedScore] = useState(0);
   const [totalPoints, setTotalPoints] = useState(0);
   const [streak, setStreak] = useState({ currentStreak: 0, earnedBonuses: [] as number[] });
   const [badges, setBadges] = useState<ReturnType<typeof getBadges>>([]);
   const [quizCompleted, setQuizCompleted] = useState(false);
   const [quizAnswers, setQuizAnswers] = useState<{ questionId: string; selectedIndex: number | null }[]>([]);
-  const [hasCheckedInToday, setHasCheckedInToday] = useState(false);
+  const [hasCheckedInSelected, setHasCheckedInSelected] = useState(false);
+
+  const isToday = selectedDate === getTodayDate();
+
+  // Load data for a specific date
+  const loadDateData = useCallback((date: string) => {
+    if (!user) return;
+
+    const checkin = getCheckinForDate(user.id, date);
+    if (checkin) {
+      setCheckedActivities(checkin.activitiesChecked);
+      setSelectedScore(checkin.dailyScore);
+      setHasCheckedInSelected(true);
+    } else {
+      setCheckedActivities([]);
+      setSelectedScore(0);
+      setHasCheckedInSelected(false);
+    }
+  }, [user]);
 
   // Load data on mount
   useEffect(() => {
     if (!user) return;
 
-    const todayCheckin = getTodayCheckin(user.id);
-    if (todayCheckin) {
-      setCheckedActivities(todayCheckin.activitiesChecked);
-      setTodayScore(todayCheckin.dailyScore);
-      setHasCheckedInToday(true);
-    }
+    loadDateData(selectedDate);
+    setCheckedDates(getCheckedDates(user.id));
 
     const todayQuiz = getTodayQuiz(user.id);
     if (todayQuiz) {
       setQuizCompleted(true);
       setQuizAnswers(todayQuiz.answers);
-      setTodayScore((prev) => prev + todayQuiz.quizScore);
     }
 
     const streakData = getStreak(user.id);
@@ -61,18 +78,22 @@ export default function Dashboard() {
 
     setTotalPoints(getTotalScore(user.id));
     setBadges(getBadges(user.id));
-  }, [user]);
+  }, [user, loadDateData, selectedDate]);
+
+  // Handle date change
+  const handleDateChange = (date: string) => {
+    setSelectedDate(date);
+    loadDateData(date);
+  };
 
   // Handle activity toggle
   const handleActivityToggle = (activityId: string) => {
-    if (!user || hasCheckedInToday) return;
+    if (!user || hasCheckedInSelected) return;
 
     setCheckedActivities((prev) => {
-      const newActivities = prev.includes(activityId)
+      return prev.includes(activityId)
         ? prev.filter((id) => id !== activityId)
         : [...prev, activityId];
-
-      return newActivities;
     });
   };
 
@@ -82,24 +103,26 @@ export default function Dashboard() {
 
     const activityScore = calculateActivityScore(checkedActivities);
 
-    // Save checkin
+    // Save checkin for the selected date
     saveCheckin({
       userId: user.id,
-      date: getTodayDate(),
+      date: selectedDate,
       activitiesChecked: checkedActivities,
       dailyScore: activityScore,
       createdAt: new Date().toISOString(),
     });
 
-    // Update streak
-    const { newStreak, bonusEarned } = updateStreak(user.id);
+    // Recalculate streak from all check-in data
+    const { newStreak, bonusEarned } = recalculateStreak(user.id);
     const updatedStreakData = getStreak(user.id);
     setStreak({ currentStreak: newStreak, earnedBonuses: updatedStreakData.earnedBonuses });
 
-    // Update today's score
-    const quizScore = getTodayQuiz(user.id)?.quizScore || 0;
-    setTodayScore(activityScore + quizScore);
-    setHasCheckedInToday(true);
+    // Update score
+    setSelectedScore(activityScore);
+    setHasCheckedInSelected(true);
+
+    // Update checked dates
+    setCheckedDates(getCheckedDates(user.id));
 
     // Update total and check badges
     const newTotal = getTotalScore(user.id);
@@ -131,7 +154,6 @@ export default function Dashboard() {
 
     setQuizCompleted(true);
     setQuizAnswers(answers);
-    setTodayScore((prev) => prev + score);
 
     const newTotal = getTotalScore(user.id);
     setTotalPoints(newTotal);
@@ -157,6 +179,20 @@ export default function Dashboard() {
   }
 
   const activityScore = calculateActivityScore(checkedActivities);
+
+  // Format selected date label
+  const selectedDateObj = new Date(selectedDate + 'T00:00:00');
+  const dateLabel = isToday
+    ? 'Aktivitas Hari Ini'
+    : `Aktivitas - ${selectedDateObj.toLocaleDateString('id-ID', {
+        weekday: 'long',
+        day: 'numeric',
+        month: 'short',
+      })}`;
+
+  const scoreLabel = isToday
+    ? 'Poin Hari Ini'
+    : `Poin ${selectedDateObj.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}`;
 
   return (
     <div className="min-h-screen bg-background geometric-pattern pb-8">
@@ -200,8 +236,8 @@ export default function Dashboard() {
         {/* Score Summary */}
         <div className="grid grid-cols-2 gap-4 animate-fade-in" style={{ animationDelay: '0.1s' }}>
           <div className="card-elevated p-4 text-center">
-            <p className="text-2xl font-bold text-primary">{todayScore}</p>
-            <p className="text-xs text-muted-foreground mt-1">Poin Hari Ini</p>
+            <p className="text-2xl font-bold text-primary">{hasCheckedInSelected ? selectedScore : activityScore}</p>
+            <p className="text-xs text-muted-foreground mt-1">{scoreLabel}</p>
           </div>
           <div className="card-elevated p-4 text-center">
             <p className="text-2xl font-bold text-foreground">{totalPoints.toLocaleString()}</p>
@@ -222,11 +258,20 @@ export default function Dashboard() {
           <LevelProgress totalPoints={totalPoints} />
         </div>
 
-        {/* Daily Checklist */}
+        {/* Date Selector */}
         <div className="animate-fade-in" style={{ animationDelay: '0.25s' }}>
+          <DateSelector
+            selectedDate={selectedDate}
+            onSelectDate={handleDateChange}
+            checkedDates={checkedDates}
+          />
+        </div>
+
+        {/* Daily Checklist */}
+        <div className="animate-fade-in" style={{ animationDelay: '0.3s' }}>
           <div className="flex items-center justify-between mb-3">
-            <h2 className="font-semibold text-foreground">Aktivitas Hari Ini</h2>
-            {!hasCheckedInToday && checkedActivities.length > 0 && (
+            <h2 className="font-semibold text-foreground">{dateLabel}</h2>
+            {!hasCheckedInSelected && checkedActivities.length > 0 && (
               <span className="text-sm text-primary font-medium">
                 +{activityScore} poin
               </span>
@@ -242,14 +287,14 @@ export default function Dashboard() {
                 points={activity.points}
                 icon={activity.icon}
                 checked={checkedActivities.includes(activity.id)}
-                disabled={hasCheckedInToday}
+                disabled={hasCheckedInSelected}
                 onToggle={handleActivityToggle}
               />
             ))}
           </div>
 
           {/* Submit Button */}
-          {!hasCheckedInToday && (
+          {!hasCheckedInSelected && (
             <Button
               onClick={handleCheckin}
               disabled={checkedActivities.length === 0}
@@ -259,26 +304,28 @@ export default function Dashboard() {
             </Button>
           )}
 
-          {hasCheckedInToday && (
+          {hasCheckedInSelected && (
             <div className="mt-4 p-3 rounded-lg bg-success/10 text-center">
               <p className="text-sm font-medium text-success">
-                ✓ Sudah check-in hari ini
+                ✓ Sudah check-in {isToday ? 'hari ini' : 'untuk tanggal ini'}
               </p>
             </div>
           )}
         </div>
 
-        {/* Daily Quiz */}
-        <div className="animate-fade-in" style={{ animationDelay: '0.3s' }}>
-          <DailyQuiz
-            completed={quizCompleted}
-            savedAnswers={quizAnswers}
-            onComplete={handleQuizComplete}
-          />
-        </div>
+        {/* Daily Quiz - only show for today */}
+        {isToday && (
+          <div className="animate-fade-in" style={{ animationDelay: '0.35s' }}>
+            <DailyQuiz
+              completed={quizCompleted}
+              savedAnswers={quizAnswers}
+              onComplete={handleQuizComplete}
+            />
+          </div>
+        )}
 
         {/* Badge Collection */}
-        <div className="animate-fade-in" style={{ animationDelay: '0.35s' }}>
+        <div className="animate-fade-in" style={{ animationDelay: '0.4s' }}>
           <BadgeCollection earnedBadges={badges} />
         </div>
 
