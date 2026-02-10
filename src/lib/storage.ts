@@ -71,9 +71,17 @@ export function getCheckins(): DailyCheckin[] {
 }
 
 export function getTodayCheckin(userId: string): DailyCheckin | null {
+  return getCheckinForDate(userId, getTodayDate());
+}
+
+export function getCheckinForDate(userId: string, date: string): DailyCheckin | null {
   const checkins = getCheckins();
-  const today = getTodayDate();
-  return checkins.find(c => c.userId === userId && c.date === today) || null;
+  return checkins.find(c => c.userId === userId && c.date === date) || null;
+}
+
+export function getCheckedDates(userId: string): string[] {
+  const checkins = getCheckins().filter(c => c.userId === userId);
+  return checkins.map(c => c.date);
 }
 
 export function saveCheckin(checkin: DailyCheckin): void {
@@ -140,36 +148,46 @@ export function getStreak(userId: string): StreakData {
 }
 
 export function updateStreak(userId: string): { newStreak: number; bonusEarned: number } {
-  const today = getTodayDate();
-  const streak = getStreak(userId);
-  
-  // Check if already checked in today
-  if (streak.lastCheckinDate === today) {
-    return { newStreak: streak.currentStreak, bonusEarned: 0 };
+  return recalculateStreak(userId);
+}
+
+export function recalculateStreak(userId: string): { newStreak: number; bonusEarned: number } {
+  const checkedDates = getCheckedDates(userId);
+  if (checkedDates.length === 0) {
+    return { newStreak: 0, bonusEarned: 0 };
   }
-  
-  // Check if streak continues or resets
-  const yesterday = new Date();
-  yesterday.setDate(yesterday.getDate() - 1);
-  const yesterdayStr = yesterday.toISOString().split('T')[0];
-  
-  let newStreak: number;
-  let earnedBonuses = [...streak.earnedBonuses];
-  
-  if (streak.lastCheckinDate === yesterdayStr) {
-    // Streak continues
-    newStreak = streak.currentStreak + 1;
-  } else if (streak.lastCheckinDate === '') {
-    // First checkin ever
-    newStreak = 1;
-    earnedBonuses = [];
-  } else {
-    // Streak broken - reset
-    newStreak = 1;
+
+  // Sort dates descending
+  const sortedDates = [...checkedDates].sort((a, b) => b.localeCompare(a));
+
+  // Count consecutive days backwards from today
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  let newStreak = 0;
+
+  for (let i = 0; ; i++) {
+    const checkDate = new Date(today);
+    checkDate.setDate(checkDate.getDate() - i);
+    const dateStr = checkDate.toISOString().split('T')[0];
+
+    if (sortedDates.includes(dateStr)) {
+      newStreak++;
+    } else {
+      break;
+    }
+  }
+
+  // Get previous streak to compare earned bonuses
+  const oldStreak = getStreak(userId);
+  let earnedBonuses = newStreak > 0 ? [...(oldStreak.earnedBonuses || [])] : [];
+
+  // If streak was broken (went to 0 at some point), reset bonuses
+  // We detect this by checking if the old streak was 0 or if new streak < old earned bonus thresholds
+  if (newStreak < (oldStreak.currentStreak || 0) && newStreak < Math.min(...(oldStreak.earnedBonuses.length > 0 ? oldStreak.earnedBonuses : [Infinity]))) {
     earnedBonuses = [];
   }
-  
-  // Check for bonus
+
+  // Check for new bonuses
   let bonusEarned = 0;
   for (const bonus of STREAK_BONUSES) {
     if (newStreak >= bonus.days && !earnedBonuses.includes(bonus.days)) {
@@ -177,27 +195,27 @@ export function updateStreak(userId: string): { newStreak: number; bonusEarned: 
       earnedBonuses.push(bonus.days);
     }
   }
-  
+
   // Save updated streak
   const updatedStreak: StreakData = {
     userId,
     currentStreak: newStreak,
-    lastCheckinDate: today,
+    lastCheckinDate: sortedDates[0],
     earnedBonuses,
   };
-  
+
   const data = localStorage.getItem(STORAGE_KEYS.streaks);
   const allStreaks: StreakData[] = data ? JSON.parse(data) : [];
   const existingIndex = allStreaks.findIndex(s => s.userId === userId);
-  
+
   if (existingIndex >= 0) {
     allStreaks[existingIndex] = updatedStreak;
   } else {
     allStreaks.push(updatedStreak);
   }
-  
+
   localStorage.setItem(STORAGE_KEYS.streaks, JSON.stringify(allStreaks));
-  
+
   return { newStreak, bonusEarned };
 }
 
