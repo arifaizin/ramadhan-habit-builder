@@ -4,7 +4,7 @@ import { User, getUser, saveUser, logoutUser as logoutFromStorage } from '@/lib/
 interface UserContextType {
   user: User | null;
   isLoading: boolean;
-  login: (name: string, division: string) => void;
+  login: (name: string, email: string, communityCode: string) => void;
   logout: () => void;
 }
 
@@ -15,17 +15,17 @@ export function UserProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Check for existing user on mount
     const existingUser = getUser();
     setUser(existingUser);
     setIsLoading(false);
   }, []);
 
-  const login = (name: string, division: string) => {
+  const login = (name: string, email: string, communityCode: string) => {
     const newUser: User = {
       id: crypto.randomUUID(),
       name,
-      division,
+      email,
+      communityCode,
       createdAt: new Date().toISOString(),
     };
     saveUser(newUser);

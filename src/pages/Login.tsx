@@ -1,33 +1,26 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useUser } from '@/contexts/UserContext';
-import { DIVISIONS } from '@/lib/constants';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 
 export default function Login() {
   const [name, setName] = useState('');
-  const [division, setDivision] = useState('');
+  const [email, setEmail] = useState('');
+  const [communityCode, setCommunityCode] = useState('');
   const { login } = useUser();
   const navigate = useNavigate();
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (name.trim() && division) {
-      login(name.trim(), division);
+    if (name.trim() && email.trim() && communityCode.trim()) {
+      login(name.trim(), email.trim(), communityCode.trim());
       navigate('/');
     }
   };
 
-  const isValid = name.trim().length >= 2 && division;
+  const isValid = name.trim().length >= 2 && email.trim().includes('@') && communityCode.trim().length >= 2;
 
   return (
     <div className="min-h-screen bg-background geometric-pattern flex items-center justify-center p-4">
@@ -65,21 +58,34 @@ export default function Login() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="division" className="text-sm font-medium">
-                Divisi / Tim
+              <Label htmlFor="email" className="text-sm font-medium">
+                Email
               </Label>
-              <Select value={division} onValueChange={setDivision}>
-                <SelectTrigger className="input-field">
-                  <SelectValue placeholder="Pilih divisi Anda" />
-                </SelectTrigger>
-                <SelectContent>
-                  {DIVISIONS.map((div) => (
-                    <SelectItem key={div} value={div}>
-                      {div}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Input
+                id="email"
+                type="email"
+                placeholder="nama@email.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="input-field"
+                autoComplete="email"
+                maxLength={100}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="communityCode" className="text-sm font-medium">
+                Kode Komunitas
+              </Label>
+              <Input
+                id="communityCode"
+                type="text"
+                placeholder="Masukkan kode komunitas Anda"
+                value={communityCode}
+                onChange={(e) => setCommunityCode(e.target.value)}
+                className="input-field"
+                maxLength={30}
+              />
             </div>
 
             <Button
