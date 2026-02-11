@@ -1,7 +1,7 @@
 import { Check, ChevronLeft, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { getTodayDate } from '@/lib/storage';
-import { CHALLENGE_START, CHALLENGE_END } from '@/lib/constants';
+import { CHALLENGE_START, CHALLENGE_END, TEST_MODE } from '@/lib/constants';
 import { useState, useRef, useEffect } from 'react';
 
 interface DateSelectorProps {
@@ -14,6 +14,29 @@ const MAX_BACKFILL_DAYS = 2;
 
 function getAllChallengeDates(): { dateStr: string; dayName: string; dayNum: number; monthName: string; isToday: boolean; canEdit: boolean }[] {
   const today = getTodayDate();
+  
+  if (TEST_MODE) {
+    // In test mode, just show today and backfill days regardless of challenge period
+    const dates: { dateStr: string; dayName: string; dayNum: number; monthName: string; isToday: boolean; canEdit: boolean }[] = [];
+    const backfillDate = new Date(today + 'T00:00:00');
+    backfillDate.setDate(backfillDate.getDate() - MAX_BACKFILL_DAYS);
+    const current = new Date(backfillDate);
+    const endDate = new Date(today + 'T00:00:00');
+    while (current <= endDate) {
+      const dateStr = current.toISOString().split('T')[0];
+      dates.push({
+        dateStr,
+        dayName: current.toLocaleDateString('id-ID', { weekday: 'short' }),
+        dayNum: current.getDate(),
+        monthName: current.toLocaleDateString('id-ID', { month: 'short' }),
+        isToday: dateStr === today,
+        canEdit: true,
+      });
+      current.setDate(current.getDate() + 1);
+    }
+    return dates;
+  }
+
   const end = today < CHALLENGE_END ? today : CHALLENGE_END;
 
   // Only show from (today - MAX_BACKFILL_DAYS) to today, clamped to challenge period

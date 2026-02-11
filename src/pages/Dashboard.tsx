@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { LogOut, Calendar, Lock, Clock } from 'lucide-react';
 import { useUser } from '@/contexts/UserContext';
-import { ACTIVITIES, CHALLENGE_START, CHALLENGE_END } from '@/lib/constants';
+import { ACTIVITIES, CHALLENGE_START, CHALLENGE_END, TEST_MODE } from '@/lib/constants';
 import {
   getCheckinForDate,
   getCheckedDates,
@@ -27,6 +27,7 @@ import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 
 function getChallengeStatus(today: string) {
+  if (TEST_MODE) return 'active';
   if (today < CHALLENGE_START) return 'before';
   if (today > CHALLENGE_END) return 'after';
   return 'active';
