@@ -3,31 +3,31 @@ export const ACTIVITIES = [
   {
     id: 'ngaji',
     label: 'Ngaji (2 halaman mushaf Madinah)',
-    points: 20,
+    points: 30,
     icon: '📖',
   },
   {
     id: 'sedekah',
     label: 'Sedekah (berapapun)',
-    points: 10,
+    points: 15,
     icon: '💝',
   },
   {
     id: 'dzikir_pagi_petang',
     label: 'Dzikir pagi/petang',
-    points: 15,
+    points: 10,
     icon: '🤲',
   },
   {
     id: 'tidak_tidur',
     label: 'Tidak tidur hingga matahari terbit',
-    points: 15,
+    points: 10,
     icon: '🌅',
   },
   {
     id: 'dzikir_tidur',
     label: 'Dzikir sebelum tidur',
-    points: 10,
+    points: 5,
     icon: '🌙',
   },
   {
@@ -70,21 +70,21 @@ export const LEVELS = [
     name: 'Terjaga',
     points: 700,
     badge: '🕊️',
-    description: 'Terjaga',
+    description: 'Habit Builder',
   },
   {
     level: 3,
     name: 'Konsisten',
     points: 1500,
     badge: '🔥',
-    description: 'Konsisten',
+    description: 'Consistency Master',
   },
   {
     level: 4,
     name: 'Istiqomah',
     points: 2500,
     badge: '⭐',
-    description: 'Istiqomah',
+    description: 'Istiqomah Lillah',
   },
   {
     level: 5,
@@ -95,20 +95,9 @@ export const LEVELS = [
   },
 ] as const;
 
-// Division options
-export const DIVISIONS = [
-  'Engineering',
-  'Product',
-  'Design',
-  'Marketing',
-  'Sales',
-  'Operations',
-  'Finance',
-  'HR',
-  'Customer Support',
-  'Legal',
-  'Other',
-] as const;
+// Challenge period
+export const CHALLENGE_START = '2025-02-18';
+export const CHALLENGE_END = '2025-03-18';
 
 // Sample quiz data (would come from backend in production)
 export const SAMPLE_QUIZZES = [

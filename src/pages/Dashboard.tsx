@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { LogOut, Calendar } from 'lucide-react';
+import { LogOut, Calendar, Lock, Clock } from 'lucide-react';
 import { useUser } from '@/contexts/UserContext';
-import { ACTIVITIES } from '@/lib/constants';
+import { ACTIVITIES, CHALLENGE_START, CHALLENGE_END } from '@/lib/constants';
 import {
   getCheckinForDate,
   getCheckedDates,
@@ -26,6 +26,12 @@ import { DateSelector } from '@/components/DateSelector';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 
+function getChallengeStatus(today: string) {
+  if (today < CHALLENGE_START) return 'before';
+  if (today > CHALLENGE_END) return 'after';
+  return 'active';
+}
+
 export default function Dashboard() {
   const { user, logout } = useUser();
   const navigate = useNavigate();
@@ -44,6 +50,8 @@ export default function Dashboard() {
   const [hasCheckedInSelected, setHasCheckedInSelected] = useState(false);
 
   const isToday = selectedDate === getTodayDate();
+  const challengeStatus = getChallengeStatus(getTodayDate());
+  const isReadOnly = challengeStatus !== 'active';
 
   // Load data for a specific date
   const loadDateData = useCallback((date: string) => {
@@ -91,7 +99,7 @@ export default function Dashboard() {
 
   // Handle activity toggle
   const handleActivityToggle = (activityId: string) => {
-    if (!user || hasCheckedInSelected) return;
+    if (!user || hasCheckedInSelected || isReadOnly) return;
 
     setCheckedActivities((prev) => {
       return prev.includes(activityId)
@@ -102,11 +110,10 @@ export default function Dashboard() {
 
   // Handle check-in submission
   const handleCheckin = () => {
-    if (!user || checkedActivities.length === 0) return;
+    if (!user || checkedActivities.length === 0 || isReadOnly) return;
 
     const activityScore = calculateActivityScore(checkedActivities);
 
-    // Save checkin for the selected date
     saveCheckin({
       userId: user.id,
       date: selectedDate,
@@ -116,19 +123,14 @@ export default function Dashboard() {
       createdAt: new Date().toISOString(),
     });
 
-    // Recalculate streak from all check-in data
     const { newStreak, bonusEarned } = recalculateStreak(user.id);
     const updatedStreakData = getStreak(user.id);
     setStreak({ currentStreak: newStreak, earnedBonuses: updatedStreakData.earnedBonuses });
 
-    // Update score
     setSelectedScore(activityScore);
     setHasCheckedInSelected(true);
-
-    // Update checked dates
     setCheckedDates(getCheckedDates(user.id));
 
-    // Update total and check badges
     const newTotal = getTotalScore(user.id);
     setTotalPoints(newTotal);
 
@@ -198,6 +200,10 @@ export default function Dashboard() {
     ? 'Poin Hari Ini'
     : `Poin ${selectedDateObj.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })}`;
 
+  // Challenge period info
+  const challengeStartDate = new Date(CHALLENGE_START + 'T00:00:00');
+  const challengeEndDate = new Date(CHALLENGE_END + 'T00:00:00');
+
   return (
     <div className="min-h-screen bg-background geometric-pattern pb-8">
       {/* Header */}
@@ -209,7 +215,7 @@ export default function Dashboard() {
             </div>
             <div>
               <p className="font-semibold text-foreground text-sm">Ahlan, {user.name}!</p>
-              <p className="text-xs text-muted-foreground">{user.division}</p>
+              <p className="text-xs text-muted-foreground">{user.communityCode}</p>
             </div>
           </div>
           <Button
@@ -224,6 +230,39 @@ export default function Dashboard() {
       </header>
 
       <main className="max-w-lg mx-auto px-4 pt-6 space-y-6">
+        {/* Challenge Status Banner */}
+        {challengeStatus === 'before' && (
+          <div className="card-elevated p-4 text-center border-primary/30 bg-primary/5 animate-fade-in">
+            <Clock className="w-8 h-8 mx-auto text-primary mb-2" />
+            <h2 className="font-semibold text-foreground mb-1">Challenge Belum Dimulai</h2>
+            <p className="text-sm text-muted-foreground">
+              Challenge dimulai pada{' '}
+              {challengeStartDate.toLocaleDateString('id-ID', {
+                weekday: 'long',
+                day: 'numeric',
+                month: 'long',
+                year: 'numeric',
+              })}
+            </p>
+          </div>
+        )}
+
+        {challengeStatus === 'after' && (
+          <div className="card-elevated p-4 text-center border-primary/30 bg-primary/5 animate-fade-in">
+            <Lock className="w-8 h-8 mx-auto text-muted-foreground mb-2" />
+            <h2 className="font-semibold text-foreground mb-1">Challenge Telah Selesai</h2>
+            <p className="text-sm text-muted-foreground">
+              Challenge berakhir pada{' '}
+              {challengeEndDate.toLocaleDateString('id-ID', {
+                day: 'numeric',
+                month: 'long',
+                year: 'numeric',
+              })}
+              . Data Anda tetap dapat dilihat.
+            </p>
+          </div>
+        )}
+
         {/* Today's Date */}
         <div className="flex items-center gap-2 text-sm text-muted-foreground animate-fade-in">
           <Calendar className="w-4 h-4" />
@@ -275,7 +314,7 @@ export default function Dashboard() {
         <div className="animate-fade-in" style={{ animationDelay: '0.3s' }}>
           <div className="flex items-center justify-between mb-3">
             <h2 className="font-semibold text-foreground">{dateLabel}</h2>
-            {!hasCheckedInSelected && checkedActivities.length > 0 && (
+            {!hasCheckedInSelected && !isReadOnly && checkedActivities.length > 0 && (
               <span className="text-sm text-primary font-medium">
                 +{activityScore} poin
               </span>
@@ -291,7 +330,7 @@ export default function Dashboard() {
                 points={activity.points}
                 icon={activity.icon}
                 checked={checkedActivities.includes(activity.id)}
-                disabled={hasCheckedInSelected}
+                disabled={hasCheckedInSelected || isReadOnly}
                 onToggle={handleActivityToggle}
                 showNote={activity.id === 'kebaikan'}
                 noteValue={activityNotes[activity.id] || ''}
@@ -304,7 +343,7 @@ export default function Dashboard() {
           </div>
 
           {/* Submit Button */}
-          {!hasCheckedInSelected && (
+          {!hasCheckedInSelected && !isReadOnly && (
             <Button
               onClick={handleCheckin}
               disabled={checkedActivities.length === 0}
@@ -323,8 +362,8 @@ export default function Dashboard() {
           )}
         </div>
 
-        {/* Daily Quiz - only show for today */}
-        {isToday && (
+        {/* Daily Quiz - only show for today and during active challenge */}
+        {isToday && !isReadOnly && (
           <div className="animate-fade-in" style={{ animationDelay: '0.35s' }}>
             <DailyQuiz
               completed={quizCompleted}

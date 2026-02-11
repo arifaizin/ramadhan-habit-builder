@@ -5,7 +5,8 @@ import { ACTIVITIES, STREAK_BONUSES, LEVELS } from './constants';
 export interface User {
   id: string;
   name: string;
-  division: string;
+  email: string;
+  communityCode: string;
   createdAt: string;
 }
 

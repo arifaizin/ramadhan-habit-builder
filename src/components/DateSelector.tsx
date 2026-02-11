@@ -1,6 +1,7 @@
 import { Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { getTodayDate } from '@/lib/storage';
+import { CHALLENGE_START, CHALLENGE_END } from '@/lib/constants';
 
 interface DateSelectorProps {
   selectedDate: string;
@@ -18,12 +19,17 @@ function getDateInfo(daysAgo: number) {
 }
 
 export function DateSelector({ selectedDate, onSelectDate, checkedDates }: DateSelectorProps) {
-  const today = getTodayDate();
-  const dates = [2, 1, 0].map(daysAgo => ({
-    ...getDateInfo(daysAgo),
-    isToday: daysAgo === 0,
-    daysAgo,
-  }));
+  const dates = [2, 1, 0]
+    .map(daysAgo => ({
+      ...getDateInfo(daysAgo),
+      isToday: daysAgo === 0,
+      daysAgo,
+    }))
+    .filter(({ dateStr }) => dateStr >= CHALLENGE_START && dateStr <= CHALLENGE_END);
+
+  if (dates.length === 0) {
+    return null;
+  }
 
   return (
     <div className="flex gap-2">
