@@ -99,6 +99,9 @@ export const LEVELS = [
 export const CHALLENGE_START = '2026-02-18';
 export const CHALLENGE_END = '2026-03-19';
 
+// Test mode - set to true to bypass challenge period restriction
+export const TEST_MODE = true;
+
 // Sample quiz data (would come from backend in production)
 export const SAMPLE_QUIZZES = [
   {
