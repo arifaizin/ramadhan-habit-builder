@@ -10,14 +10,21 @@ interface DateSelectorProps {
   checkedDates: string[];
 }
 
-function getAllChallengeDates(): { dateStr: string; dayName: string; dayNum: number; monthName: string; isToday: boolean }[] {
+const MAX_BACKFILL_DAYS = 2;
+
+function getAllChallengeDates(): { dateStr: string; dayName: string; dayNum: number; monthName: string; isToday: boolean; canEdit: boolean }[] {
   const today = getTodayDate();
-  const start = CHALLENGE_START;
   const end = today < CHALLENGE_END ? today : CHALLENGE_END;
+
+  // Only show from (today - MAX_BACKFILL_DAYS) to today, clamped to challenge period
+  const backfillDate = new Date(today + 'T00:00:00');
+  backfillDate.setDate(backfillDate.getDate() - MAX_BACKFILL_DAYS);
+  const backfillStr = backfillDate.toISOString().split('T')[0];
+  const start = backfillStr > CHALLENGE_START ? backfillStr : CHALLENGE_START;
 
   if (start > end) return [];
 
-  const dates: { dateStr: string; dayName: string; dayNum: number; monthName: string; isToday: boolean }[] = [];
+  const dates: { dateStr: string; dayName: string; dayNum: number; monthName: string; isToday: boolean; canEdit: boolean }[] = [];
   const current = new Date(start + 'T00:00:00');
   const endDate = new Date(end + 'T00:00:00');
 
@@ -29,6 +36,7 @@ function getAllChallengeDates(): { dateStr: string; dayName: string; dayNum: num
       dayNum: current.getDate(),
       monthName: current.toLocaleDateString('id-ID', { month: 'short' }),
       isToday: dateStr === today,
+      canEdit: true,
     });
     current.setDate(current.getDate() + 1);
   }
