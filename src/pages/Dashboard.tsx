@@ -34,6 +34,7 @@ export default function Dashboard() {
   const [selectedDate, setSelectedDate] = useState(getTodayDate());
   const [checkedDates, setCheckedDates] = useState<string[]>([]);
   const [checkedActivities, setCheckedActivities] = useState<string[]>([]);
+  const [activityNotes, setActivityNotes] = useState<Record<string, string>>({});
   const [selectedScore, setSelectedScore] = useState(0);
   const [totalPoints, setTotalPoints] = useState(0);
   const [streak, setStreak] = useState({ currentStreak: 0, earnedBonuses: [] as number[] });
@@ -51,10 +52,12 @@ export default function Dashboard() {
     const checkin = getCheckinForDate(user.id, date);
     if (checkin) {
       setCheckedActivities(checkin.activitiesChecked);
+      setActivityNotes(checkin.activityNotes || {});
       setSelectedScore(checkin.dailyScore);
       setHasCheckedInSelected(true);
     } else {
       setCheckedActivities([]);
+      setActivityNotes({});
       setSelectedScore(0);
       setHasCheckedInSelected(false);
     }
@@ -108,6 +111,7 @@ export default function Dashboard() {
       userId: user.id,
       date: selectedDate,
       activitiesChecked: checkedActivities,
+      activityNotes,
       dailyScore: activityScore,
       createdAt: new Date().toISOString(),
     });
@@ -289,6 +293,12 @@ export default function Dashboard() {
                 checked={checkedActivities.includes(activity.id)}
                 disabled={hasCheckedInSelected}
                 onToggle={handleActivityToggle}
+                showNote={activity.id === 'kebaikan'}
+                noteValue={activityNotes[activity.id] || ''}
+                onNoteChange={(id, value) =>
+                  setActivityNotes((prev) => ({ ...prev, [id]: value }))
+                }
+                notePlaceholder="Contoh: membuang batu yang menghalangi di jalan"
               />
             ))}
           </div>

@@ -13,6 +13,7 @@ export interface DailyCheckin {
   userId: string;
   date: string;
   activitiesChecked: string[];
+  activityNotes?: Record<string, string>;
   dailyScore: number;
   createdAt: string;
 }
