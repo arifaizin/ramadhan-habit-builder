@@ -6,7 +6,7 @@ import { useState, useRef, useEffect } from 'react';
 
 interface DateSelectorProps {
   selectedDate: string;
-  onSelectDate: (date: string) => void;
+  onSelectDate: (date: string, canEdit: boolean) => void;
   checkedDates: string[];
 }
 
@@ -14,7 +14,7 @@ const MAX_BACKFILL_DAYS = 2;
 
 function getAllChallengeDates(): { dateStr: string; dayName: string; dayNum: number; monthName: string; isToday: boolean; canEdit: boolean }[] {
   const today = getTodayDate();
-  
+
   if (TEST_MODE) {
     // In test mode, just show today and backfill days regardless of challenge period
     const dates: { dateStr: string; dayName: string; dayNum: number; monthName: string; isToday: boolean; canEdit: boolean }[] = [];
@@ -24,13 +24,19 @@ function getAllChallengeDates(): { dateStr: string; dayName: string; dayNum: num
     const endDate = new Date(today + 'T00:00:00');
     while (current <= endDate) {
       const dateStr = current.toISOString().split('T')[0];
+
+      // Calculate if this date can be edited (within 2 days from today)
+      const todayDate = new Date(today + 'T00:00:00');
+      const daysDifference = Math.floor((todayDate.getTime() - current.getTime()) / (1000 * 60 * 60 * 24));
+      const canEdit = daysDifference <= 2;
+
       dates.push({
         dateStr,
         dayName: current.toLocaleDateString('id-ID', { weekday: 'short' }),
         dayNum: current.getDate(),
         monthName: current.toLocaleDateString('id-ID', { month: 'short' }),
         isToday: dateStr === today,
-        canEdit: true,
+        canEdit,
       });
       current.setDate(current.getDate() + 1);
     }
@@ -53,13 +59,19 @@ function getAllChallengeDates(): { dateStr: string; dayName: string; dayNum: num
 
   while (current <= endDate) {
     const dateStr = current.toISOString().split('T')[0];
+
+    // Calculate if this date can be edited (within 2 days from today)
+    const todayDate = new Date(today + 'T00:00:00');
+    const daysDifference = Math.floor((todayDate.getTime() - current.getTime()) / (1000 * 60 * 60 * 24));
+    const canEdit = daysDifference <= 2;
+
     dates.push({
       dateStr,
       dayName: current.toLocaleDateString('id-ID', { weekday: 'short' }),
       dayNum: current.getDate(),
       monthName: current.toLocaleDateString('id-ID', { month: 'short' }),
       isToday: dateStr === today,
-      canEdit: true,
+      canEdit,
     });
     current.setDate(current.getDate() + 1);
   }
@@ -101,7 +113,7 @@ export function DateSelector({ selectedDate, onSelectDate, checkedDates }: DateS
         <ChevronLeft className="w-4 h-4 text-muted-foreground" />
       </button>
       <div ref={scrollRef} className="flex gap-2 overflow-x-auto scrollbar-hide px-8 py-1">
-        {dates.map(({ dateStr, dayName, dayNum, monthName, isToday }) => {
+        {dates.map(({ dateStr, dayName, dayNum, monthName, isToday, canEdit }) => {
           const isChecked = checkedDates.includes(dateStr);
           const isSelected = selectedDate === dateStr;
 
@@ -110,7 +122,7 @@ export function DateSelector({ selectedDate, onSelectDate, checkedDates }: DateS
               key={dateStr}
               data-date={dateStr}
               type="button"
-              onClick={() => onSelectDate(dateStr)}
+              onClick={() => onSelectDate(dateStr, canEdit)}
               className={cn(
                 'flex-shrink-0 w-16 flex flex-col items-center gap-1 py-3 px-2 rounded-xl border-2 transition-all duration-200',
                 isSelected

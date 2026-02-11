@@ -49,6 +49,7 @@ export default function Dashboard() {
   const [quizCompleted, setQuizCompleted] = useState(false);
   const [quizAnswers, setQuizAnswers] = useState<{ questionId: string; selectedIndex: number | null }[]>([]);
   const [hasCheckedInSelected, setHasCheckedInSelected] = useState(false);
+  const [canEditSelected, setCanEditSelected] = useState(true);
 
   const isToday = selectedDate === getTodayDate();
   const challengeStatus = getChallengeStatus(getTodayDate());
@@ -79,6 +80,13 @@ export default function Dashboard() {
     loadDateData(selectedDate);
     setCheckedDates(getCheckedDates(user.id));
 
+    // Calculate if the selected date can be edited
+    const today = getTodayDate();
+    const todayDate = new Date(today + 'T00:00:00');
+    const selectedDateObj = new Date(selectedDate + 'T00:00:00');
+    const daysDifference = Math.floor((todayDate.getTime() - selectedDateObj.getTime()) / (1000 * 60 * 60 * 24));
+    setCanEditSelected(daysDifference <= 2);
+
     const todayQuiz = getTodayQuiz(user.id);
     if (todayQuiz) {
       setQuizCompleted(true);
@@ -93,14 +101,15 @@ export default function Dashboard() {
   }, [user, loadDateData, selectedDate]);
 
   // Handle date change
-  const handleDateChange = (date: string) => {
+  const handleDateChange = (date: string, canEdit: boolean) => {
     setSelectedDate(date);
+    setCanEditSelected(canEdit);
     loadDateData(date);
   };
 
   // Handle activity toggle
   const handleActivityToggle = (activityId: string) => {
-    if (!user || hasCheckedInSelected || isReadOnly) return;
+    if (!user || (hasCheckedInSelected && !canEditSelected) || isReadOnly) return;
 
     setCheckedActivities((prev) => {
       return prev.includes(activityId)
@@ -192,10 +201,10 @@ export default function Dashboard() {
   const dateLabel = isToday
     ? 'Aktivitas Hari Ini'
     : `Aktivitas - ${selectedDateObj.toLocaleDateString('id-ID', {
-        weekday: 'long',
-        day: 'numeric',
-        month: 'short',
-      })}`;
+      weekday: 'long',
+      day: 'numeric',
+      month: 'short',
+    })}`;
 
   const scoreLabel = isToday
     ? 'Poin Hari Ini'
@@ -331,7 +340,7 @@ export default function Dashboard() {
                 points={activity.points}
                 icon={activity.icon}
                 checked={checkedActivities.includes(activity.id)}
-                disabled={hasCheckedInSelected || isReadOnly}
+                disabled={(hasCheckedInSelected && !canEditSelected) || isReadOnly}
                 onToggle={handleActivityToggle}
                 showNote={activity.id === 'kebaikan'}
                 noteValue={activityNotes[activity.id] || ''}
@@ -344,20 +353,28 @@ export default function Dashboard() {
           </div>
 
           {/* Submit Button */}
-          {!hasCheckedInSelected && !isReadOnly && (
+          {(!hasCheckedInSelected || canEditSelected) && !isReadOnly && (
             <Button
               onClick={handleCheckin}
               disabled={checkedActivities.length === 0}
               className="w-full btn-primary mt-4"
             >
-              Simpan Check-in ({checkedActivities.length} aktivitas)
+              {hasCheckedInSelected ? 'Update Check-in' : `Simpan Check-in (${checkedActivities.length} aktivitas)`}
             </Button>
           )}
 
-          {hasCheckedInSelected && (
-            <div className="mt-4 p-3 rounded-lg bg-success/10 text-center">
-              <p className="text-sm font-medium text-success">
-                ✓ Sudah check-in {isToday ? 'hari ini' : 'untuk tanggal ini'}
+          {hasCheckedInSelected && !canEditSelected && (
+            <div className="mt-4 p-3 rounded-lg bg-muted text-center">
+              <p className="text-sm font-medium text-muted-foreground">
+                ✓ Sudah check-in {isToday ? 'hari ini' : 'untuk tanggal ini'} (tidak bisa diedit, lebih dari 2 hari)
+              </p>
+            </div>
+          )}
+
+          {hasCheckedInSelected && canEditSelected && (
+            <div className="mt-2 p-2 rounded-lg bg-amber-50 dark:bg-amber-950/30 text-center">
+              <p className="text-xs text-amber-700 dark:text-amber-400">
+                💡 Anda masih bisa mengubah check-in ini (dalam 2 hari)
               </p>
             </div>
           )}
