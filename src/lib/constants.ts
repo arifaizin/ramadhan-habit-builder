@@ -67,31 +67,31 @@ export const LEVELS = [
   },
   {
     level: 2,
-    name: 'Terjaga',
+    name: 'Habit Guardian',
     points: 700,
     badge: '🕊️',
     description: 'Habit Builder',
   },
   {
     level: 3,
-    name: 'Konsisten',
+    name: 'Consistency Master',
     points: 1500,
     badge: '🔥',
     description: 'Consistency Master',
   },
   {
     level: 4,
-    name: 'Istiqomah',
+    name: 'Istiqomah Lillah',
     points: 2500,
     badge: '⭐',
     description: 'Istiqomah Lillah',
   },
   {
     level: 5,
-    name: 'Perfect',
+    name: 'High Achiever',
     points: 3500,
     badge: '👑',
-    description: 'Perfect Achiever',
+    description: 'High Achiever',
   },
 ] as const;
 
