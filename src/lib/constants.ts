@@ -75,16 +75,23 @@ export const LEVELS = [
   {
     level: 3,
     name: 'Konsisten',
-    points: 1200,
+    points: 1500,
     badge: '🔥',
     description: 'Konsisten',
   },
   {
     level: 4,
     name: 'Istiqomah',
-    points: 1600,
+    points: 2500,
     badge: '⭐',
     description: 'Istiqomah',
+  },
+  {
+    level: 5,
+    name: 'Perfect',
+    points: 3500,
+    badge: '👑',
+    description: 'Perfect Achiever',
   },
 ] as const;
 
