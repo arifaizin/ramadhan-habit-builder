@@ -184,8 +184,8 @@ export default function Dashboard() {
   };
 
   // Handle logout
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    await logout();
     navigate('/login');
   };
 

@@ -4,23 +4,47 @@ import { useUser } from '@/contexts/UserContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { toast } from 'sonner';
+
+type TabMode = 'login' | 'register';
 
 export default function Login() {
+  const [mode, setMode] = useState<TabMode>('login');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [communityCode, setCommunityCode] = useState('');
-  const { login } = useUser();
+  const [loading, setLoading] = useState(false);
+  const { login, register } = useUser();
   const navigate = useNavigate();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (name.trim() && email.trim() && communityCode.trim()) {
-      login(name.trim(), email.trim(), communityCode.trim());
-      navigate('/');
+    setLoading(true);
+
+    if (mode === 'login') {
+      const { error } = await login(email.trim(), password);
+      if (error) {
+        toast.error(error);
+      } else {
+        navigate('/');
+      }
+    } else {
+      const { error } = await register(name.trim(), email.trim(), password, communityCode.trim());
+      if (error) {
+        toast.error(error);
+      } else {
+        toast.success('Registrasi berhasil! Selamat datang.');
+        navigate('/');
+      }
     }
+
+    setLoading(false);
   };
 
-  const isValid = name.trim().length >= 2 && email.trim().includes('@') && communityCode.trim().length >= 2;
+  const isLoginValid = email.trim().includes('@') && password.length >= 1;
+  const isRegisterValid = name.trim().length >= 2 && email.trim().includes('@') && password.length >= 1 && communityCode.trim().length >= 2;
+  const isValid = mode === 'login' ? isLoginValid : isRegisterValid;
 
   return (
     <div className="min-h-screen bg-background geometric-pattern flex items-center justify-center p-4">
@@ -38,24 +62,50 @@ export default function Login() {
           </p>
         </div>
 
-        {/* Login Card */}
+        {/* Tabs */}
+        <div className="flex gap-1 p-1 bg-muted rounded-lg mb-6 animate-fade-in">
+          <button
+            onClick={() => setMode('login')}
+            className={`flex-1 py-2.5 text-sm font-medium rounded-md transition-all duration-200 ${
+              mode === 'login'
+                ? 'bg-card text-foreground shadow-sm'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            Masuk
+          </button>
+          <button
+            onClick={() => setMode('register')}
+            className={`flex-1 py-2.5 text-sm font-medium rounded-md transition-all duration-200 ${
+              mode === 'register'
+                ? 'bg-card text-foreground shadow-sm'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            Daftar
+          </button>
+        </div>
+
+        {/* Form Card */}
         <div className="card-elevated p-6 animate-slide-up">
           <form onSubmit={handleSubmit} className="space-y-5">
-            <div className="space-y-2">
-              <Label htmlFor="name" className="text-sm font-medium">
-                Nama Lengkap
-              </Label>
-              <Input
-                id="name"
-                type="text"
-                placeholder="Masukkan nama Anda"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                className="input-field"
-                autoComplete="name"
-                maxLength={50}
-              />
-            </div>
+            {mode === 'register' && (
+              <div className="space-y-2">
+                <Label htmlFor="name" className="text-sm font-medium">
+                  Nama Lengkap
+                </Label>
+                <Input
+                  id="name"
+                  type="text"
+                  placeholder="Masukkan nama Anda"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  className="input-field"
+                  autoComplete="name"
+                  maxLength={50}
+                />
+              </div>
+            )}
 
             <div className="space-y-2">
               <Label htmlFor="email" className="text-sm font-medium">
@@ -74,37 +124,60 @@ export default function Login() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="communityCode" className="text-sm font-medium">
-                Kode Komunitas
+              <Label htmlFor="password" className="text-sm font-medium">
+                Password
               </Label>
               <Input
-                id="communityCode"
-                type="text"
-                placeholder="Masukkan kode komunitas Anda"
-                value={communityCode}
-                onChange={(e) => setCommunityCode(e.target.value)}
+                id="password"
+                type="password"
+                placeholder="Masukkan password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
                 className="input-field"
-                maxLength={30}
+                autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
               />
             </div>
+
+            {mode === 'register' && (
+              <div className="space-y-2">
+                <Label htmlFor="communityCode" className="text-sm font-medium">
+                  Kode Komunitas
+                </Label>
+                <Input
+                  id="communityCode"
+                  type="text"
+                  placeholder="Masukkan kode komunitas Anda"
+                  value={communityCode}
+                  onChange={(e) => setCommunityCode(e.target.value)}
+                  className="input-field"
+                  maxLength={30}
+                />
+              </div>
+            )}
 
             <Button
               type="submit"
               className="w-full btn-primary"
-              disabled={!isValid}
+              disabled={!isValid || loading}
             >
-              Mulai Perjalanan
+              {loading
+                ? 'Memproses...'
+                : mode === 'login'
+                  ? 'Masuk'
+                  : 'Daftar & Mulai'}
             </Button>
           </form>
 
           <p className="text-xs text-muted-foreground text-center mt-6">
-            Fokus pada konsistensi dan kebiasaan baik, bukan kompetisi.
+            {mode === 'login'
+              ? 'Belum punya akun? Klik "Daftar" di atas.'
+              : 'Fokus pada konsistensi dan kebiasaan baik, bukan kompetisi.'}
           </p>
         </div>
 
         {/* Footer */}
         <p className="text-xs text-muted-foreground text-center mt-6">
-          Ramadhan 1446H / 2025
+          Ramadhan 1447H / 2026
         </p>
       </div>
     </div>
