@@ -1,21 +1,81 @@
-import { useState } from 'react';
-import { ExternalLink, Check, X } from 'lucide-react';
-import { SAMPLE_QUIZZES, QUIZ_POINTS } from '@/lib/constants';
+import { useState, useEffect } from 'react';
+import { ExternalLink, Check, X, Loader2 } from 'lucide-react';
+import { QUIZ_POINTS } from '@/lib/constants';
+import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
+interface QuizQuestion {
+  id: string;
+  question: string;
+  options: string[];
+  correctIndex: number;
+}
+
+interface QuizData {
+  video_title: string;
+  video_url: string;
+  questions: QuizQuestion[];
+}
+
 interface DailyQuizProps {
+  date: string;
   completed: boolean;
   savedAnswers?: { questionId: string; selectedIndex: number | null }[];
   onComplete: (answers: { questionId: string; selectedIndex: number | null }[], score: number) => void;
 }
 
-export function DailyQuiz({ completed, savedAnswers, onComplete }: DailyQuizProps) {
-  const quiz = SAMPLE_QUIZZES[0]; // Using first quiz for demo
-  const [answers, setAnswers] = useState<Record<string, number | null>>(
-    savedAnswers?.reduce((acc, a) => ({ ...acc, [a.questionId]: a.selectedIndex }), {}) || {}
-  );
+export function DailyQuiz({ date, completed, savedAnswers, onComplete }: DailyQuizProps) {
+  const [quiz, setQuiz] = useState<QuizData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [answers, setAnswers] = useState<Record<string, number | null>>({});
   const [submitted, setSubmitted] = useState(completed);
+
+  useEffect(() => {
+    async function fetchQuiz() {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('quizzes')
+        .select('video_title, video_url, questions')
+        .eq('quiz_date', date)
+        .maybeSingle();
+
+      if (!error && data) {
+        const questions = (data.questions as unknown) as QuizQuestion[];
+        setQuiz({ video_title: data.video_title, video_url: data.video_url, questions });
+      } else {
+        setQuiz(null);
+      }
+      setLoading(false);
+    }
+    fetchQuiz();
+  }, [date]);
+
+  useEffect(() => {
+    setSubmitted(completed);
+    if (savedAnswers) {
+      setAnswers(savedAnswers.reduce((acc, a) => ({ ...acc, [a.questionId]: a.selectedIndex }), {}));
+    } else {
+      setAnswers({});
+    }
+  }, [completed, savedAnswers]);
+
+  if (loading) {
+    return (
+      <div className="card-elevated p-6 flex items-center justify-center">
+        <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+        <span className="ml-2 text-sm text-muted-foreground">Memuat quiz...</span>
+      </div>
+    );
+  }
+
+  if (!quiz) {
+    return (
+      <div className="card-elevated p-4 text-center">
+        <p className="text-sm text-muted-foreground">Tidak ada quiz untuk hari ini.</p>
+      </div>
+    );
+  }
 
   const handleSelectAnswer = (questionId: string, index: number) => {
     if (submitted) return;
@@ -23,12 +83,12 @@ export function DailyQuiz({ completed, savedAnswers, onComplete }: DailyQuizProp
   };
 
   const handleSubmit = () => {
+    if (!quiz) return;
     const answerArray = quiz.questions.map((q) => ({
       questionId: q.id,
       selectedIndex: answers[q.id] ?? null,
     }));
 
-    // Calculate score
     let score = 0;
     for (const q of quiz.questions) {
       const selected = answers[q.id];
@@ -60,7 +120,7 @@ export function DailyQuiz({ completed, savedAnswers, onComplete }: DailyQuizProp
 
       {/* Video Link */}
       <a
-        href={quiz.videoUrl}
+        href={quiz.video_url}
         target="_blank"
         rel="noopener noreferrer"
         className="flex items-center gap-3 p-3 rounded-lg bg-secondary/50 hover:bg-secondary transition-colors mb-4"
@@ -70,7 +130,7 @@ export function DailyQuiz({ completed, savedAnswers, onComplete }: DailyQuizProp
         </div>
         <div className="flex-1 min-w-0">
           <p className="text-sm font-medium text-foreground truncate">
-            {quiz.videoTitle}
+            {quiz.video_title}
           </p>
           <p className="text-xs text-muted-foreground">Tonton dulu sebelum menjawab</p>
         </div>
