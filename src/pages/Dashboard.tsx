@@ -384,6 +384,7 @@ export default function Dashboard() {
         {isToday && !isReadOnly && (
           <div className="animate-fade-in" style={{ animationDelay: '0.35s' }}>
             <DailyQuiz
+              date={selectedDate}
               completed={quizCompleted}
               savedAnswers={quizAnswers}
               onComplete={handleQuizComplete}
