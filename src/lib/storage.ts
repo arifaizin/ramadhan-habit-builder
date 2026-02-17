@@ -1,104 +1,158 @@
-// Local storage utilities for the MVP (will be replaced with Supabase later)
-
+// Storage utilities using Supabase
+import { supabase } from '@/integrations/supabase/client';
 import { ACTIVITIES, STREAK_BONUSES, LEVELS } from './constants';
+import type { Database, Json } from '@/integrations/supabase/types';
 
-export interface User {
+export type User = {
   id: string;
   name: string;
-  email: string;
-  communityCode: string;
+  email: string | null;
+  communityCode: string | null;
   createdAt: string;
-}
+};
 
-export interface DailyCheckin {
+export type DailyCheckin = {
+  id?: string;
   userId: string;
   date: string;
   activitiesChecked: string[];
   activityNotes?: Record<string, string>;
   dailyScore: number;
-  createdAt: string;
-}
+  createdAt?: string;
+};
 
-export interface QuizAnswer {
+export type QuizAnswer = {
+  id?: string;
   userId: string;
   date: string;
   answers: { questionId: string; selectedIndex: number | null }[];
   quizScore: number;
-}
+  createdAt?: string;
+};
 
-export interface StreakData {
+export type StreakData = {
   userId: string;
   currentStreak: number;
-  lastCheckinDate: string;
+  lastCheckinDate: string | null;
   earnedBonuses: number[];
-}
+};
 
-export interface Badge {
+export type Badge = {
   userId: string;
   badgeName: string;
   unlockedAt: string;
-}
-
-const STORAGE_KEYS = {
-  user: 'mutabaah_user',
-  checkins: 'mutabaah_checkins',
-  quizAnswers: 'mutabaah_quiz',
-  streaks: 'mutabaah_streaks',
-  badges: 'mutabaah_badges',
 };
 
 // User functions
-export function getUser(): User | null {
-  const data = localStorage.getItem(STORAGE_KEYS.user);
-  return data ? JSON.parse(data) : null;
-}
+export async function getCurrentUser(): Promise<User | null> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return null;
 
-export function saveUser(user: User): void {
-  localStorage.setItem(STORAGE_KEYS.user, JSON.stringify(user));
-}
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('id', user.id)
+    .single();
 
-export function logoutUser(): void {
-  localStorage.removeItem(STORAGE_KEYS.user);
+  if (!profile) return null;
+
+  return {
+    id: profile.id,
+    name: profile.name,
+    email: profile.email,
+    communityCode: profile.community_code,
+    createdAt: profile.created_at,
+  };
 }
 
 // Get today's date in YYYY-MM-DD format
 export function getTodayDate(): string {
-  return new Date().toISOString().split('T')[0];
+  // Using local time for daily activities is usually what users expect
+  return new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD
 }
 
 // Checkin functions
-export function getCheckins(): DailyCheckin[] {
-  const data = localStorage.getItem(STORAGE_KEYS.checkins);
-  return data ? JSON.parse(data) : [];
+export async function getCheckins(userId: string): Promise<DailyCheckin[]> {
+  const { data, error } = await supabase
+    .from('daily_checkins')
+    .select('*')
+    .eq('user_id', userId);
+
+  if (error) {
+    console.error('Error fetching checkins:', error);
+    return [];
+  }
+
+  return data.map(item => ({
+    id: item.id,
+    userId: item.user_id,
+    date: item.date,
+    activitiesChecked: item.activities_checked,
+    activityNotes: item.activity_notes as Record<string, string>,
+    dailyScore: item.daily_score,
+    createdAt: item.created_at,
+  }));
 }
 
-export function getTodayCheckin(userId: string): DailyCheckin | null {
+export async function getTodayCheckin(userId: string): Promise<DailyCheckin | null> {
   return getCheckinForDate(userId, getTodayDate());
 }
 
-export function getCheckinForDate(userId: string, date: string): DailyCheckin | null {
-  const checkins = getCheckins();
-  return checkins.find(c => c.userId === userId && c.date === date) || null;
-}
+export async function getCheckinForDate(userId: string, date: string): Promise<DailyCheckin | null> {
+  const { data, error } = await supabase
+    .from('daily_checkins')
+    .select('*')
+    .eq('user_id', userId)
+    .eq('date', date)
+    .maybeSingle();
 
-export function getCheckedDates(userId: string): string[] {
-  const checkins = getCheckins().filter(c => c.userId === userId);
-  return checkins.map(c => c.date);
-}
-
-export function saveCheckin(checkin: DailyCheckin): void {
-  const checkins = getCheckins();
-  const existingIndex = checkins.findIndex(
-    c => c.userId === checkin.userId && c.date === checkin.date
-  );
-  
-  if (existingIndex >= 0) {
-    checkins[existingIndex] = checkin;
-  } else {
-    checkins.push(checkin);
+  if (error) {
+    console.error('Error fetching checkin for date:', error);
+    return null;
   }
-  
-  localStorage.setItem(STORAGE_KEYS.checkins, JSON.stringify(checkins));
+
+  if (!data) return null;
+
+  return {
+    id: data.id,
+    userId: data.user_id,
+    date: data.date,
+    activitiesChecked: data.activities_checked,
+    activityNotes: data.activity_notes as Record<string, string>,
+    dailyScore: data.daily_score,
+    createdAt: data.created_at,
+  };
+}
+
+export async function getCheckedDates(userId: string): Promise<string[]> {
+  const { data, error } = await supabase
+    .from('daily_checkins')
+    .select('date')
+    .eq('user_id', userId);
+
+  if (error) {
+    console.error('Error fetching checked dates:', error);
+    return [];
+  }
+
+  return data.map(item => item.date);
+}
+
+export async function saveCheckin(checkin: DailyCheckin): Promise<void> {
+  const { error } = await supabase
+    .from('daily_checkins')
+    .upsert({
+      user_id: checkin.userId,
+      date: checkin.date,
+      activities_checked: checkin.activitiesChecked,
+      activity_notes: checkin.activityNotes as Json,
+      daily_score: checkin.dailyScore,
+    }, { onConflict: 'user_id,date' });
+
+  if (error) {
+    console.error('Error saving checkin:', error);
+    throw error;
+  }
 }
 
 // Calculate score for activities
@@ -110,51 +164,96 @@ export function calculateActivityScore(activityIds: string[]): number {
 }
 
 // Quiz functions
-export function getQuizAnswers(): QuizAnswer[] {
-  const data = localStorage.getItem(STORAGE_KEYS.quizAnswers);
-  return data ? JSON.parse(data) : [];
-}
+export async function getQuizAnswers(userId: string): Promise<QuizAnswer[]> {
+  const { data, error } = await supabase
+    .from('quiz_answers')
+    .select('*')
+    .eq('user_id', userId);
 
-export function getTodayQuiz(userId: string): QuizAnswer | null {
-  const answers = getQuizAnswers();
-  const today = getTodayDate();
-  return answers.find(a => a.userId === userId && a.date === today) || null;
-}
-
-export function saveQuizAnswer(answer: QuizAnswer): void {
-  const answers = getQuizAnswers();
-  const existingIndex = answers.findIndex(
-    a => a.userId === answer.userId && a.date === answer.date
-  );
-  
-  if (existingIndex >= 0) {
-    answers[existingIndex] = answer;
-  } else {
-    answers.push(answer);
+  if (error) {
+    console.error('Error fetching quiz answers:', error);
+    return [];
   }
-  
-  localStorage.setItem(STORAGE_KEYS.quizAnswers, JSON.stringify(answers));
+
+  return data.map(item => ({
+    id: item.id,
+    userId: item.user_id,
+    date: item.date,
+    answers: item.answers as any[],
+    quizScore: item.quiz_score,
+    createdAt: item.created_at,
+  }));
+}
+
+export async function getTodayQuiz(userId: string): Promise<QuizAnswer | null> {
+  const today = getTodayDate();
+  const { data, error } = await supabase
+    .from('quiz_answers')
+    .select('*')
+    .eq('user_id', userId)
+    .eq('date', today)
+    .maybeSingle();
+
+  if (error) {
+    console.error('Error fetching today quiz:', error);
+    return null;
+  }
+
+  if (!data) return null;
+
+  return {
+    id: data.id,
+    userId: data.user_id,
+    date: data.date,
+    answers: data.answers as any[],
+    quizScore: data.quiz_score,
+    createdAt: data.created_at,
+  };
+}
+
+export async function saveQuizAnswer(answer: QuizAnswer): Promise<void> {
+  const { error } = await supabase
+    .from('quiz_answers')
+    .upsert({
+      user_id: answer.userId,
+      date: answer.date,
+      answers: answer.answers as Json,
+      quiz_score: answer.quizScore,
+    }, { onConflict: 'user_id,date' });
+
+  if (error) {
+    console.error('Error saving quiz answer:', error);
+    throw error;
+  }
 }
 
 // Streak functions
-export function getStreak(userId: string): StreakData {
-  const data = localStorage.getItem(STORAGE_KEYS.streaks);
-  const allStreaks: StreakData[] = data ? JSON.parse(data) : [];
-  
-  return allStreaks.find(s => s.userId === userId) || {
+export async function getStreak(userId: string): Promise<StreakData> {
+  const { data, error } = await supabase
+    .from('streaks')
+    .select('*')
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  if (error) {
+    console.error('Error fetching streak:', error);
+  }
+
+  return data ? {
+    userId: data.user_id,
+    currentStreak: data.current_streak,
+    lastCheckinDate: data.last_checkin_date,
+    earnedBonuses: data.earned_bonuses || [],
+  } : {
     userId,
     currentStreak: 0,
-    lastCheckinDate: '',
+    lastCheckinDate: null,
     earnedBonuses: [],
   };
 }
 
-export function updateStreak(userId: string): { newStreak: number; bonusEarned: number } {
-  return recalculateStreak(userId);
-}
-
-export function recalculateStreak(userId: string): { newStreak: number; bonusEarned: number } {
-  const checkedDates = getCheckedDates(userId);
+export async function recalculateStreak(userId: string): Promise<{ newStreak: number; bonusEarned: number }> {
+  const checkedDates = await getCheckedDates(userId);
   if (checkedDates.length === 0) {
     return { newStreak: 0, bonusEarned: 0 };
   }
@@ -170,7 +269,7 @@ export function recalculateStreak(userId: string): { newStreak: number; bonusEar
   for (let i = 0; ; i++) {
     const checkDate = new Date(today);
     checkDate.setDate(checkDate.getDate() - i);
-    const dateStr = checkDate.toISOString().split('T')[0];
+    const dateStr = checkDate.toLocaleDateString('en-CA');
 
     if (sortedDates.includes(dateStr)) {
       newStreak++;
@@ -180,12 +279,11 @@ export function recalculateStreak(userId: string): { newStreak: number; bonusEar
   }
 
   // Get previous streak to compare earned bonuses
-  const oldStreak = getStreak(userId);
+  const oldStreak = await getStreak(userId);
   let earnedBonuses = newStreak > 0 ? [...(oldStreak.earnedBonuses || [])] : [];
 
-  // If streak was broken (went to 0 at some point), reset bonuses
-  // We detect this by checking if the old streak was 0 or if new streak < old earned bonus thresholds
-  if (newStreak < (oldStreak.currentStreak || 0) && newStreak < Math.min(...(oldStreak.earnedBonuses.length > 0 ? oldStreak.earnedBonuses : [Infinity]))) {
+  // If streak was broken, reset bonuses if needed (MVP logic)
+  if (newStreak < (oldStreak.currentStreak || 0) && newStreak < Math.min(...(earnedBonuses.length > 0 ? earnedBonuses : [Infinity]))) {
     earnedBonuses = [];
   }
 
@@ -199,39 +297,45 @@ export function recalculateStreak(userId: string): { newStreak: number; bonusEar
   }
 
   // Save updated streak
-  const updatedStreak: StreakData = {
-    userId,
-    currentStreak: newStreak,
-    lastCheckinDate: sortedDates[0],
-    earnedBonuses,
-  };
+  const { error } = await supabase
+    .from('streaks')
+    .upsert({
+      user_id: userId,
+      current_streak: newStreak,
+      last_checkin_date: sortedDates[0],
+      earned_bonuses: earnedBonuses,
+    }, { onConflict: 'user_id' });
 
-  const data = localStorage.getItem(STORAGE_KEYS.streaks);
-  const allStreaks: StreakData[] = data ? JSON.parse(data) : [];
-  const existingIndex = allStreaks.findIndex(s => s.userId === userId);
-
-  if (existingIndex >= 0) {
-    allStreaks[existingIndex] = updatedStreak;
-  } else {
-    allStreaks.push(updatedStreak);
+  if (error) {
+    console.error('Error saving streak:', error);
   }
-
-  localStorage.setItem(STORAGE_KEYS.streaks, JSON.stringify(allStreaks));
 
   return { newStreak, bonusEarned };
 }
 
 // Badge functions
-export function getBadges(userId: string): Badge[] {
-  const data = localStorage.getItem(STORAGE_KEYS.badges);
-  const allBadges: Badge[] = data ? JSON.parse(data) : [];
-  return allBadges.filter(b => b.userId === userId);
+export async function getBadges(userId: string): Promise<Badge[]> {
+  const { data, error } = await supabase
+    .from('badges')
+    .select('*')
+    .eq('user_id', userId);
+
+  if (error) {
+    console.error('Error fetching badges:', error);
+    return [];
+  }
+
+  return data.map(item => ({
+    userId: item.user_id,
+    badgeName: item.badge_name,
+    unlockedAt: item.unlocked_at,
+  }));
 }
 
-export function checkAndUnlockBadges(userId: string, totalPoints: number): Badge[] {
-  const existingBadges = getBadges(userId);
+export async function checkAndUnlockBadges(userId: string, totalPoints: number): Promise<Badge[]> {
+  const existingBadges = await getBadges(userId);
   const newBadges: Badge[] = [];
-  
+
   for (const level of LEVELS) {
     if (totalPoints >= level.points) {
       const alreadyHas = existingBadges.some(b => b.badgeName === level.name);
@@ -245,43 +349,52 @@ export function checkAndUnlockBadges(userId: string, totalPoints: number): Badge
       }
     }
   }
-  
+
   if (newBadges.length > 0) {
-    const data = localStorage.getItem(STORAGE_KEYS.badges);
-    const allBadges: Badge[] = data ? JSON.parse(data) : [];
-    allBadges.push(...newBadges);
-    localStorage.setItem(STORAGE_KEYS.badges, JSON.stringify(allBadges));
+    const { error } = await supabase
+      .from('badges')
+      .insert(newBadges.map(b => ({
+        user_id: b.userId,
+        badge_name: b.badgeName,
+        unlocked_at: b.unlockedAt,
+      })));
+
+    if (error) {
+      console.error('Error saving new badges:', error);
+    }
   }
-  
+
   return newBadges;
 }
 
 // Get total score for a user
-export function getTotalScore(userId: string): number {
-  const checkins = getCheckins().filter(c => c.userId === userId);
-  const quizzes = getQuizAnswers().filter(q => q.userId === userId);
-  const streak = getStreak(userId);
-  
+export async function getTotalScore(userId: string): Promise<number> {
+  const [checkins, quizzes, streak] = await Promise.all([
+    getCheckins(userId),
+    getQuizAnswers(userId),
+    getStreak(userId)
+  ]);
+
   const checkinPoints = checkins.reduce((sum, c) => sum + c.dailyScore, 0);
   const quizPoints = quizzes.reduce((sum, q) => sum + q.quizScore, 0);
   const streakBonus = streak.earnedBonuses.reduce((sum, days) => {
     const bonus = STREAK_BONUSES.find(b => b.days === days);
     return sum + (bonus?.points || 0);
   }, 0);
-  
+
   return checkinPoints + quizPoints + streakBonus;
 }
 
 // Get current level based on points
 export function getCurrentLevel(totalPoints: number): typeof LEVELS[number] | null {
   let currentLevel = null;
-  
+
   for (const level of LEVELS) {
     if (totalPoints >= level.points) {
       currentLevel = level;
     }
   }
-  
+
   return currentLevel;
 }
 
@@ -294,3 +407,4 @@ export function getNextLevel(totalPoints: number): typeof LEVELS[number] | null 
   }
   return null;
 }
+

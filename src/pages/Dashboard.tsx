@@ -16,6 +16,7 @@ import {
   getTodayQuiz,
   saveQuizAnswer,
   getTodayDate,
+  type Badge,
 } from '@/lib/storage';
 import { ActivityCard } from '@/components/ActivityCard';
 import { StreakDisplay } from '@/components/StreakDisplay';
@@ -45,7 +46,7 @@ export default function Dashboard() {
   const [selectedScore, setSelectedScore] = useState(0);
   const [totalPoints, setTotalPoints] = useState(0);
   const [streak, setStreak] = useState({ currentStreak: 0, earnedBonuses: [] as number[] });
-  const [badges, setBadges] = useState<ReturnType<typeof getBadges>>([]);
+  const [badges, setBadges] = useState<Badge[]>([]);
   const [quizCompleted, setQuizCompleted] = useState(false);
   const [quizAnswers, setQuizAnswers] = useState<{ questionId: string; selectedIndex: number | null }[]>([]);
   const [hasCheckedInSelected, setHasCheckedInSelected] = useState(false);
@@ -56,10 +57,10 @@ export default function Dashboard() {
   const isReadOnly = challengeStatus !== 'active';
 
   // Load data for a specific date
-  const loadDateData = useCallback((date: string) => {
+  const loadDateData = useCallback(async (date: string) => {
     if (!user) return;
 
-    const checkin = getCheckinForDate(user.id, date);
+    const checkin = await getCheckinForDate(user.id, date);
     if (checkin) {
       setCheckedActivities(checkin.activitiesChecked);
       setActivityNotes(checkin.activityNotes || {});
@@ -77,27 +78,38 @@ export default function Dashboard() {
   useEffect(() => {
     if (!user) return;
 
-    loadDateData(selectedDate);
-    setCheckedDates(getCheckedDates(user.id));
+    const loadData = async () => {
+      await loadDateData(selectedDate);
+      const dates = await getCheckedDates(user.id);
+      setCheckedDates(dates);
 
-    // Calculate if the selected date can be edited
-    const today = getTodayDate();
-    const todayDate = new Date(today + 'T00:00:00');
-    const selectedDateObj = new Date(selectedDate + 'T00:00:00');
-    const daysDifference = Math.floor((todayDate.getTime() - selectedDateObj.getTime()) / (1000 * 60 * 60 * 24));
-    setCanEditSelected(daysDifference <= 2);
+      // Calculate if the selected date can be edited
+      const today = getTodayDate();
+      const todayDate = new Date(today + 'T00:00:00');
+      const selectedDateObj = new Date(selectedDate + 'T00:00:00');
+      const daysDifference = Math.floor((todayDate.getTime() - selectedDateObj.getTime()) / (1000 * 60 * 60 * 24));
+      setCanEditSelected(daysDifference <= 2);
 
-    const todayQuiz = getTodayQuiz(user.id);
-    if (todayQuiz) {
-      setQuizCompleted(true);
-      setQuizAnswers(todayQuiz.answers);
-    }
+      const todayQuiz = await getTodayQuiz(user.id);
+      if (todayQuiz) {
+        setQuizCompleted(true);
+        setQuizAnswers(todayQuiz.answers);
+      } else {
+        setQuizCompleted(false);
+        setQuizAnswers([]);
+      }
 
-    const streakData = getStreak(user.id);
-    setStreak({ currentStreak: streakData.currentStreak, earnedBonuses: streakData.earnedBonuses });
+      const streakData = await getStreak(user.id);
+      setStreak({ currentStreak: streakData.currentStreak, earnedBonuses: streakData.earnedBonuses });
 
-    setTotalPoints(getTotalScore(user.id));
-    setBadges(getBadges(user.id));
+      const total = await getTotalScore(user.id);
+      setTotalPoints(total);
+
+      const userBadges = await getBadges(user.id);
+      setBadges(userBadges);
+    };
+
+    loadData();
   }, [user, loadDateData, selectedDate]);
 
   // Handle date change
@@ -119,68 +131,81 @@ export default function Dashboard() {
   };
 
   // Handle check-in submission
-  const handleCheckin = () => {
+  const handleCheckin = async () => {
     if (!user || checkedActivities.length === 0 || isReadOnly) return;
 
-    const activityScore = calculateActivityScore(checkedActivities);
+    try {
+      const activityScore = calculateActivityScore(checkedActivities);
 
-    saveCheckin({
-      userId: user.id,
-      date: selectedDate,
-      activitiesChecked: checkedActivities,
-      activityNotes,
-      dailyScore: activityScore,
-      createdAt: new Date().toISOString(),
-    });
+      await saveCheckin({
+        userId: user.id,
+        date: selectedDate,
+        activitiesChecked: checkedActivities,
+        activityNotes,
+        dailyScore: activityScore,
+        createdAt: new Date().toISOString(),
+      });
 
-    const { newStreak, bonusEarned } = recalculateStreak(user.id);
-    const updatedStreakData = getStreak(user.id);
-    setStreak({ currentStreak: newStreak, earnedBonuses: updatedStreakData.earnedBonuses });
+      const { newStreak, bonusEarned } = await recalculateStreak(user.id);
+      const updatedStreakData = await getStreak(user.id);
+      setStreak({ currentStreak: newStreak, earnedBonuses: updatedStreakData.earnedBonuses });
 
-    setSelectedScore(activityScore);
-    setHasCheckedInSelected(true);
-    setCheckedDates(getCheckedDates(user.id));
+      setSelectedScore(activityScore);
+      setHasCheckedInSelected(true);
+      const dates = await getCheckedDates(user.id);
+      setCheckedDates(dates);
 
-    const newTotal = getTotalScore(user.id);
-    setTotalPoints(newTotal);
+      const newTotal = await getTotalScore(user.id);
+      setTotalPoints(newTotal);
 
-    const newBadges = checkAndUnlockBadges(user.id, newTotal);
-    if (newBadges.length > 0) {
-      setBadges(getBadges(user.id));
-      toast.success(`🎉 Badge baru: ${newBadges.map((b) => b.badgeName).join(', ')}!`);
+      const newBadges = await checkAndUnlockBadges(user.id, newTotal);
+      if (newBadges.length > 0) {
+        const userBadges = await getBadges(user.id);
+        setBadges(userBadges);
+        toast.success(`🎉 Badge baru: ${newBadges.map((b) => b.badgeName).join(', ')}!`);
+      }
+
+      if (bonusEarned > 0) {
+        toast.success(`🔥 Bonus streak: +${bonusEarned} poin!`);
+      }
+
+      toast.success('Check-in berhasil! Jazakallahu khairan.');
+    } catch (error) {
+      console.error('Check-in error:', error);
+      toast.error('Gagal menyimpan check-in. Silakan coba lagi.');
     }
-
-    if (bonusEarned > 0) {
-      toast.success(`🔥 Bonus streak: +${bonusEarned} poin!`);
-    }
-
-    toast.success('Check-in berhasil! Jazakallahu khairan.');
   };
 
   // Handle quiz completion
-  const handleQuizComplete = (answers: { questionId: string; selectedIndex: number | null }[], score: number) => {
+  const handleQuizComplete = async (answers: { questionId: string; selectedIndex: number | null }[], score: number) => {
     if (!user) return;
 
-    saveQuizAnswer({
-      userId: user.id,
-      date: getTodayDate(),
-      answers,
-      quizScore: score,
-    });
+    try {
+      await saveQuizAnswer({
+        userId: user.id,
+        date: getTodayDate(),
+        answers,
+        quizScore: score,
+      });
 
-    setQuizCompleted(true);
-    setQuizAnswers(answers);
+      setQuizCompleted(true);
+      setQuizAnswers(answers);
 
-    const newTotal = getTotalScore(user.id);
-    setTotalPoints(newTotal);
+      const newTotal = await getTotalScore(user.id);
+      setTotalPoints(newTotal);
 
-    const newBadges = checkAndUnlockBadges(user.id, newTotal);
-    if (newBadges.length > 0) {
-      setBadges(getBadges(user.id));
-      toast.success(`🎉 Badge baru: ${newBadges.map((b) => b.badgeName).join(', ')}!`);
+      const newBadges = await checkAndUnlockBadges(user.id, newTotal);
+      if (newBadges.length > 0) {
+        const userBadges = await getBadges(user.id);
+        setBadges(userBadges);
+        toast.success(`🎉 Badge baru: ${newBadges.map((b) => b.badgeName).join(', ')}!`);
+      }
+
+      toast.success(`Quiz selesai! +${score} poin`);
+    } catch (error) {
+      console.error('Quiz error:', error);
+      toast.error('Gagal menyimpan jawaban quiz.');
     }
-
-    toast.success(`Quiz selesai! +${score} poin`);
   };
 
   // Handle logout
