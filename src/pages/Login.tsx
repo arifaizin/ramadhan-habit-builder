@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useUser } from '@/contexts/UserContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,11 +9,15 @@ import { toast } from 'sonner';
 type TabMode = 'login' | 'register';
 
 export default function Login() {
-  const [mode, setMode] = useState<TabMode>('login');
+  const [searchParams] = useSearchParams();
+  const initialCommunityCode = searchParams.get('community') || searchParams.get('code') || '';
+  const initialMode: TabMode = initialCommunityCode ? 'register' : 'login';
+
+  const [mode, setMode] = useState<TabMode>(initialMode);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [communityCode, setCommunityCode] = useState('');
+  const [communityCode, setCommunityCode] = useState(initialCommunityCode);
   const [loading, setLoading] = useState(false);
   const { login, register } = useUser();
   const navigate = useNavigate();
@@ -66,21 +70,19 @@ export default function Login() {
         <div className="flex gap-1 p-1 bg-muted rounded-lg mb-6 animate-fade-in">
           <button
             onClick={() => setMode('login')}
-            className={`flex-1 py-2.5 text-sm font-medium rounded-md transition-all duration-200 ${
-              mode === 'login'
+            className={`flex-1 py-2.5 text-sm font-medium rounded-md transition-all duration-200 ${mode === 'login'
                 ? 'bg-card text-foreground shadow-sm'
                 : 'text-muted-foreground hover:text-foreground'
-            }`}
+              }`}
           >
             Masuk
           </button>
           <button
             onClick={() => setMode('register')}
-            className={`flex-1 py-2.5 text-sm font-medium rounded-md transition-all duration-200 ${
-              mode === 'register'
+            className={`flex-1 py-2.5 text-sm font-medium rounded-md transition-all duration-200 ${mode === 'register'
                 ? 'bg-card text-foreground shadow-sm'
                 : 'text-muted-foreground hover:text-foreground'
-            }`}
+              }`}
           >
             Daftar
           </button>
