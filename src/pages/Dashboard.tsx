@@ -24,6 +24,7 @@ import { LevelProgress } from '@/components/LevelProgress';
 import { BadgeCollection } from '@/components/BadgeCollection';
 import { DailyQuiz } from '@/components/DailyQuiz';
 import { DateSelector } from '@/components/DateSelector';
+import { BottomNav } from '@/components/BottomNav';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 
@@ -429,6 +430,8 @@ export default function Dashboard() {
           </p>
         </div>
       </main>
+
+      <BottomNav />
     </div>
   );
 }
