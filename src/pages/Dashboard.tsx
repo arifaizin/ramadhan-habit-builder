@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { LogOut, Calendar, Lock, Clock } from 'lucide-react';
 import { useUser } from '@/contexts/UserContext';
-import { ACTIVITIES, CHALLENGE_START, CHALLENGE_END, TEST_MODE } from '@/lib/constants';
+import { ACTIVITIES, CHALLENGE_START, CHALLENGE_END, TEST_MODE, CHECKIN_EDIT_LIMIT_DAYS } from '@/lib/constants';
 import {
   getCheckinForDate,
   getCheckedDates,
@@ -89,7 +89,7 @@ export default function Dashboard() {
       const todayDate = new Date(today + 'T00:00:00');
       const selectedDateObj = new Date(selectedDate + 'T00:00:00');
       const daysDifference = Math.floor((todayDate.getTime() - selectedDateObj.getTime()) / (1000 * 60 * 60 * 24));
-      setCanEditSelected(daysDifference <= 2);
+      setCanEditSelected(daysDifference <= CHECKIN_EDIT_LIMIT_DAYS);
 
       const todayQuiz = await getTodayQuiz(user.id);
       if (todayQuiz) {
@@ -122,7 +122,7 @@ export default function Dashboard() {
 
   // Handle activity toggle
   const handleActivityToggle = (activityId: string) => {
-    if (!user || (hasCheckedInSelected && !canEditSelected) || isReadOnly) return;
+    if (!user || !canEditSelected || isReadOnly) return;
 
     setCheckedActivities((prev) => {
       return prev.includes(activityId)
@@ -171,9 +171,15 @@ export default function Dashboard() {
       }
 
       toast.success('Check-in berhasil! Jazakallahu khairan.');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Check-in error:', error);
-      toast.error('Gagal menyimpan check-in. Silakan coba lagi.');
+
+      // Provide clearer error message for 403 (RLS limit)
+      if (error?.status === 403 || error?.code === '42501') {
+        toast.error(`Batas pengisian/edit adalah ${CHECKIN_EDIT_LIMIT_DAYS} hari. Anda tidak bisa lagi mengubah data untuk tanggal ini.`);
+      } else {
+        toast.error('Gagal menyimpan check-in. Silakan coba lagi.');
+      }
     }
   };
 
@@ -392,7 +398,15 @@ export default function Dashboard() {
           {hasCheckedInSelected && !canEditSelected && (
             <div className="mt-4 p-3 rounded-lg bg-muted text-center">
               <p className="text-sm font-medium text-muted-foreground">
-                ✓ Sudah check-in {isToday ? 'hari ini' : 'untuk tanggal ini'} (tidak bisa diedit, lebih dari 2 hari)
+                ✓ Sudah check-in {isToday ? 'hari ini' : 'untuk tanggal ini'} (tidak bisa diedit, lebih dari {CHECKIN_EDIT_LIMIT_DAYS} hari)
+              </p>
+            </div>
+          )}
+
+          {(!hasCheckedInSelected && !canEditSelected) && !isReadOnly && (
+            <div className="mt-4 p-3 rounded-lg bg-destructive/10 text-center border border-destructive/20">
+              <p className="text-sm font-medium text-destructive">
+                Batas pengisian sudah lewat ({CHECKIN_EDIT_LIMIT_DAYS} hari). Data untuk tanggal ini tidak bisa lagi disimpan.
               </p>
             </div>
           )}
@@ -400,7 +414,7 @@ export default function Dashboard() {
           {hasCheckedInSelected && canEditSelected && (
             <div className="mt-2 p-2 rounded-lg bg-amber-50 dark:bg-amber-950/30 text-center">
               <p className="text-xs text-amber-700 dark:text-amber-400">
-                💡 Anda masih bisa mengubah check-in ini (dalam 2 hari)
+                💡 Anda masih bisa mengubah check-in ini (dalam {CHECKIN_EDIT_LIMIT_DAYS} hari)
               </p>
             </div>
           )}
