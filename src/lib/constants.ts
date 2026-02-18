@@ -96,7 +96,7 @@ export const LEVELS = [
 ] as const;
 
 // Challenge period
-export const CHALLENGE_START = '2026-02-18';
+export const CHALLENGE_START = '2026-02-19';
 export const CHALLENGE_END = '2026-03-19';
 
 // Edit window for check-ins

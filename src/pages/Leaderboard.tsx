@@ -37,12 +37,12 @@ export default function Leaderboard() {
         try {
             const communityParam = activeTab === 'community' ? user?.communityCode : null;
 
-            const { data, error } = await supabase.rpc('get_leaderboard', {
+            const { data, error } = await (supabase.rpc as any)('get_leaderboard', {
                 community_code_param: communityParam
             });
 
             if (error) throw error;
-            setEntries(data || []);
+            setEntries((data as LeaderboardEntry[]) || []);
         } catch (error: any) {
             console.error('Error fetching leaderboard:', error);
             toast.error('Gagal memuat peringkat');
