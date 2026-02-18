@@ -83,6 +83,24 @@ export function PWAPrompt() {
     // Handle Install Prompt
     useEffect(() => {
         if (installPrompt) {
+            // Check dismissal history
+            const dismissCount = parseInt(localStorage.getItem("pwa-dismiss-count") || "0");
+            const lastDismiss = parseInt(localStorage.getItem("pwa-last-dismiss") || "0");
+            const currentTime = Date.now();
+
+            // If dismissed 3 or more times, don't show prompt
+            if (dismissCount >= 3) return;
+
+            // Calculate backoff time
+            let backoffDays = 0;
+            if (dismissCount === 1) backoffDays = 1;
+            if (dismissCount === 2) backoffDays = 3;
+
+            const backoffMs = backoffDays * 24 * 60 * 60 * 1000;
+
+            // If still in backoff period, don't show prompt
+            if (currentTime < lastDismiss + backoffMs) return;
+
             const timer = setTimeout(() => {
                 toast.custom((t) => (
                     <div className="flex w-full max-w-md items-center gap-4 rounded-xl border border-border bg-card p-4 shadow-elevated fade-in">
@@ -116,6 +134,11 @@ export function PWAPrompt() {
                                     size="sm"
                                     className="h-8 px-3 text-xs text-muted-foreground hover:bg-secondary"
                                     onClick={() => {
+                                        // Update dismissal logic
+                                        const newCount = dismissCount + 1;
+                                        localStorage.setItem("pwa-dismiss-count", newCount.toString());
+                                        localStorage.setItem("pwa-last-dismiss", Date.now().toString());
+
                                         setInstallPrompt(null);
                                         toast.dismiss(t);
                                     }}
