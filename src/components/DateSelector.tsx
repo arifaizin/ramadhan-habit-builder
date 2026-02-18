@@ -45,11 +45,10 @@ function getAllChallengeDates(): { dateStr: string; dayName: string; dayNum: num
 
   const end = today < CHALLENGE_END ? today : CHALLENGE_END;
 
-  // Only show from (today - MAX_BACKFILL_DAYS) to today, clamped to challenge period
+  // Show from (today - MAX_BACKFILL_DAYS) to today, clamped to challenge end
   const backfillDate = new Date(today + 'T00:00:00');
   backfillDate.setDate(backfillDate.getDate() - MAX_BACKFILL_DAYS);
-  const backfillStr = backfillDate.toISOString().split('T')[0];
-  const start = backfillStr > CHALLENGE_START ? backfillStr : CHALLENGE_START;
+  const start = backfillDate.toISOString().split('T')[0];
 
   if (start > end) return [];
 

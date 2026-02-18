@@ -16,6 +16,7 @@ import {
   getTodayQuiz,
   saveQuizAnswer,
   getTodayDate,
+  resetPreChallengeData,
   type Badge,
 } from '@/lib/storage';
 import { ActivityCard } from '@/components/ActivityCard';
@@ -55,7 +56,8 @@ export default function Dashboard() {
 
   const isToday = selectedDate === getTodayDate();
   const challengeStatus = getChallengeStatus(getTodayDate());
-  const isReadOnly = challengeStatus !== 'active';
+  // Features are usable during 'before' and 'active', only read-only after 'after'
+  const isReadOnly = challengeStatus === 'after';
 
   // Load data for a specific date
   const loadDateData = useCallback(async (date: string) => {
@@ -112,6 +114,38 @@ export default function Dashboard() {
 
     loadData();
   }, [user, loadDateData, selectedDate]);
+
+  // Handle automatic data reset when challenge starts
+  useEffect(() => {
+    if (!user) return;
+
+    const today = getTodayDate();
+    if (today >= CHALLENGE_START) {
+      // Check if we already did the reset (MVP: we can check if there are pre-challenge checkins)
+      const checkAndReset = async () => {
+        const checkins = await getCheckedDates(user.id);
+        const hasPreChallengeData = checkins.some(date => date < CHALLENGE_START);
+
+        if (hasPreChallengeData) {
+          await resetPreChallengeData(user.id);
+          // Reload all data after reset
+          await loadDateData(selectedDate);
+          const dates = await getCheckedDates(user.id);
+          setCheckedDates(dates);
+          const total = await getTotalScore(user.id);
+          setTotalPoints(total);
+          const userBadges = await getBadges(user.id);
+          setBadges(userBadges);
+          const streakData = await getStreak(user.id);
+          setStreak({ currentStreak: streakData.currentStreak, earnedBonuses: streakData.earnedBonuses });
+
+          toast.info('Periode Challenge dimulai! Data percobaan Anda telah direset.');
+        }
+      };
+
+      checkAndReset();
+    }
+  }, [user, selectedDate, loadDateData]);
 
   // Handle date change
   const handleDateChange = (date: string, canEdit: boolean) => {

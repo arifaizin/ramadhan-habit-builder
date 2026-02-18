@@ -1,6 +1,6 @@
 // Storage utilities using Supabase
 import { supabase } from '@/integrations/supabase/client';
-import { ACTIVITIES, STREAK_BONUSES, LEVELS } from './constants';
+import { ACTIVITIES, STREAK_BONUSES, LEVELS, CHALLENGE_START } from './constants';
 import type { Database, Json } from '@/integrations/supabase/types';
 
 export type User = {
@@ -406,5 +406,51 @@ export function getNextLevel(totalPoints: number): typeof LEVELS[number] | null 
     }
   }
   return null;
+}
+
+// Reset all data before challenge start
+export async function resetPreChallengeData(userId: string): Promise<void> {
+  console.log('Resetting pre-challenge data for user:', userId);
+
+  // 1. Delete check-ins before challenge start
+  const { error: checkinError } = await supabase
+    .from('daily_checkins')
+    .delete()
+    .eq('user_id', userId)
+    .lt('date', CHALLENGE_START);
+
+  if (checkinError) console.error('Error resetting checkins:', checkinError);
+
+  // 2. Delete quizes before challenge start
+  const { error: quizError } = await supabase
+    .from('quiz_answers')
+    .delete()
+    .eq('user_id', userId)
+    .lt('date', CHALLENGE_START);
+
+  if (quizError) console.error('Error resetting quizzes:', quizError);
+
+  // 3. Reset streak if the last checkin was before challenge start
+  const streak = await getStreak(userId);
+  if (streak.lastCheckinDate && streak.lastCheckinDate < CHALLENGE_START) {
+    const { error: streakError } = await supabase
+      .from('streaks')
+      .upsert({
+        user_id: userId,
+        current_streak: 0,
+        last_checkin_date: null,
+        earned_bonuses: [],
+      }, { onConflict: 'user_id' });
+
+    if (streakError) console.error('Error resetting streak:', streakError);
+  }
+
+  // 4. Reset badges (since they are calculated from total score which is now reset)
+  const { error: badgeError } = await supabase
+    .from('badges')
+    .delete()
+    .eq('user_id', userId);
+
+  if (badgeError) console.error('Error resetting badges:', badgeError);
 }
 
