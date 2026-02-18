@@ -1,0 +1,22 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Brand Emerald Green Background -->
+  <rect width="512" height="512" rx="128" fill="#158a63"/>
+  
+  <!-- Subtle Geometric Pattern -->
+  <g opacity="0.1">
+    <path d="M256 0L328 72L256 144L184 72L256 0Z" fill="white"/>
+    <path d="M256 368L328 440L256 512L184 440L256 368Z" fill="white"/>
+    <path d="M0 256L72 184L144 256L72 328L0 256Z" fill="white"/>
+    <path d="M512 256L440 328L368 256L440 184L512 256Z" fill="white"/>
+  </g>
+
+  <!-- Perfectly Smooth Crescent Moon (Centered & Rotated 180 degrees) -->
+  <!-- Calculated centering: The bounding box of the crescent is roughly 160px. 
+       Adjusting cx/cy to balance the visual weight in the center. -->
+  <mask id="moon_mask">
+    <circle cx="288" cy="288" r="160" fill="white" />
+    <circle cx="224" cy="224" r="160" fill="black" />
+  </mask>
+  
+  <circle cx="288" cy="288" r="160" fill="#FFC107" mask="url(#moon_mask)" transform="translate(-32, -32)" />
+</svg>
