@@ -103,7 +103,7 @@ export const CHALLENGE_END = '2026-03-19';
 export const CHECKIN_EDIT_LIMIT_DAYS = 2;
 
 // Test mode - set to true to bypass challenge period restriction
-export const TEST_MODE = true;
+export const TEST_MODE = false;
 
 // Sample quiz data (would come from backend in production)
 export const SAMPLE_QUIZZES = [
