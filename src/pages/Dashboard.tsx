@@ -272,19 +272,30 @@ export default function Dashboard() {
       </header>
 
       <main className="max-w-lg mx-auto px-4 pt-6 space-y-6">
-        {/* Challenge Status Banner */}
+        {/* Challenge Info Banner */}
         {challengeStatus === 'before' && (
-          <div className="card-elevated p-4 text-center border-primary/30 bg-primary/5 animate-fade-in">
-            <Clock className="w-8 h-8 mx-auto text-primary mb-2" />
-            <h2 className="font-semibold text-foreground mb-1">Challenge Belum Dimulai</h2>
-            <p className="text-sm text-muted-foreground">
-              Challenge dimulai pada{' '}
-              {challengeStartDate.toLocaleDateString('id-ID', {
-                weekday: 'long',
-                day: 'numeric',
-                month: 'long',
-                year: 'numeric',
-              })}
+          <div className="card-elevated p-5 text-center border-primary/30 bg-primary/5 animate-fade-in space-y-3">
+            <div className="text-4xl">🚀</div>
+            <h2 className="font-bold text-foreground text-lg">Bersiaplah, Pejuang Ramadhan!</h2>
+            <p className="text-sm text-muted-foreground leading-relaxed">
+              <span className="font-semibold text-primary">Ramadhan Challenge</span> akan dimulai pada{' '}
+              <span className="font-semibold text-foreground">19 Februari – 19 Maret 2026</span>.
+            </p>
+            <p className="text-sm text-muted-foreground leading-relaxed">
+              Semua data aktivitas sebelum tanggal tersebut akan direset. Gunakan waktu ini untuk membiasakan fitur-fitur yang ada. 💪
+            </p>
+            <div className="pt-2 text-xs text-muted-foreground/70 italic">
+              "Sebaik-baik amalan adalah yang dilakukan secara konsisten, meskipun sedikit." (HR. Muslim)
+            </div>
+          </div>
+        )}
+
+        {challengeStatus === 'active' && getTodayDate() === CHALLENGE_START && (
+          <div className="card-elevated p-5 text-center border-primary/30 bg-primary/5 animate-fade-in space-y-2">
+            <div className="text-4xl">🌙</div>
+            <h2 className="font-bold text-foreground text-lg">Selamat Mengikuti Challenge!</h2>
+            <p className="text-sm text-muted-foreground leading-relaxed">
+              Bismillah, hari ini adalah hari pertama perjalanan kita. Mari raih keberkahan Ramadhan bersama-sama! 🤲
             </p>
           </div>
         )}

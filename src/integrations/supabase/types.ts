@@ -214,6 +214,20 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      ensure_community_exists: {
+        Args: { community_code: string }
+        Returns: undefined
+      }
+      get_leaderboard: {
+        Args: { community_code_param?: string }
+        Returns: {
+          display_name: string
+          is_me: boolean
+          rank: number
+          total_score: number
+          user_id: string
+        }[]
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
