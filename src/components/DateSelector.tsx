@@ -23,7 +23,7 @@ function getAllChallengeDates(): { dateStr: string; dayName: string; dayNum: num
     const current = new Date(backfillDate);
     const endDate = new Date(today + 'T00:00:00');
     while (current <= endDate) {
-      const dateStr = current.toISOString().split('T')[0];
+      const dateStr = current.toLocaleDateString('en-CA');
 
       // Calculate if this date can be edited (within 2 days from today)
       const todayDate = new Date(today + 'T00:00:00');
@@ -48,7 +48,7 @@ function getAllChallengeDates(): { dateStr: string; dayName: string; dayNum: num
   // Show from (today - MAX_BACKFILL_DAYS) to today, clamped to challenge end
   const backfillDate = new Date(today + 'T00:00:00');
   backfillDate.setDate(backfillDate.getDate() - MAX_BACKFILL_DAYS);
-  const start = backfillDate.toISOString().split('T')[0];
+  const start = backfillDate.toLocaleDateString('en-CA');
 
   if (start > end) return [];
 
@@ -57,7 +57,7 @@ function getAllChallengeDates(): { dateStr: string; dayName: string; dayNum: num
   const endDate = new Date(end + 'T00:00:00');
 
   while (current <= endDate) {
-    const dateStr = current.toISOString().split('T')[0];
+    const dateStr = current.toLocaleDateString('en-CA');
 
     // Calculate if this date can be edited (within 2 days from today)
     const todayDate = new Date(today + 'T00:00:00');
@@ -82,7 +82,7 @@ export function DateSelector({ selectedDate, onSelectDate, checkedDates }: DateS
   const dates = getAllChallengeDates();
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Scroll to selected date on mount
+  // Scroll to selected date on mount and trigger initial selection
   useEffect(() => {
     if (scrollRef.current) {
       const selectedEl = scrollRef.current.querySelector(`[data-date="${selectedDate}"]`);
@@ -90,7 +90,13 @@ export function DateSelector({ selectedDate, onSelectDate, checkedDates }: DateS
         selectedEl.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' });
       }
     }
-  }, []);
+
+    // Auto-select today's date on mount to ensure data loads
+    const todayDate = dates.find(d => d.isToday);
+    if (todayDate) {
+      onSelectDate(todayDate.dateStr, todayDate.canEdit);
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (dates.length === 0) {
     return null;

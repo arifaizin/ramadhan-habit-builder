@@ -65,10 +65,20 @@ export async function getCurrentUser(): Promise<User | null> {
   };
 }
 
-// Get today's date in YYYY-MM-DD format
+// Get today's date in YYYY-MM-DD format (local timezone for display)
 export function getTodayDate(): string {
-  // Using local time for daily activities is usually what users expect
-  return new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD
+  return new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD local
+}
+
+// Convert local date string to UTC date string (for Supabase queries)
+export function localToDBDate(localDate: string): string {
+  return new Date(localDate + 'T00:00:00').toISOString().split('T')[0];
+}
+
+// Convert UTC date string from Supabase to local date string (for display)
+export function dbToLocalDate(dbDate: string): string {
+  const d = new Date(dbDate + 'T23:59:00Z');
+  return d.toLocaleDateString('en-CA');
 }
 
 // Checkin functions
@@ -99,11 +109,12 @@ export async function getTodayCheckin(userId: string): Promise<DailyCheckin | nu
 }
 
 export async function getCheckinForDate(userId: string, date: string): Promise<DailyCheckin | null> {
+  const dbDate = localToDBDate(date);
   const { data, error } = await supabase
     .from('daily_checkins')
     .select('*')
     .eq('user_id', userId)
-    .eq('date', date)
+    .eq('date', dbDate)
     .maybeSingle();
 
   if (error) {
@@ -135,7 +146,7 @@ export async function getCheckedDates(userId: string): Promise<string[]> {
     return [];
   }
 
-  return data.map(item => item.date);
+  return data.map(item => dbToLocalDate(item.date));
 }
 
 export async function saveCheckin(checkin: DailyCheckin): Promise<void> {
@@ -143,7 +154,7 @@ export async function saveCheckin(checkin: DailyCheckin): Promise<void> {
     .from('daily_checkins')
     .upsert({
       user_id: checkin.userId,
-      date: checkin.date,
+      date: localToDBDate(checkin.date),
       activities_checked: checkin.activitiesChecked,
       activity_notes: checkin.activityNotes as Json,
       daily_score: checkin.dailyScore,
@@ -186,7 +197,7 @@ export async function getQuizAnswers(userId: string): Promise<QuizAnswer[]> {
 }
 
 export async function getTodayQuiz(userId: string): Promise<QuizAnswer | null> {
-  const today = getTodayDate();
+  const today = localToDBDate(getTodayDate());
   const { data, error } = await supabase
     .from('quiz_answers')
     .select('*')
@@ -216,7 +227,7 @@ export async function saveQuizAnswer(answer: QuizAnswer): Promise<void> {
     .from('quiz_answers')
     .upsert({
       user_id: answer.userId,
-      date: answer.date,
+      date: localToDBDate(answer.date),
       answers: answer.answers as Json,
       quiz_score: answer.quizScore,
     }, { onConflict: 'user_id,date' });
