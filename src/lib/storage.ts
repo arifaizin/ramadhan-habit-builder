@@ -222,6 +222,32 @@ export async function getTodayQuiz(userId: string): Promise<QuizAnswer | null> {
   };
 }
 
+export async function getQuizForDate(userId: string, date: string): Promise<QuizAnswer | null> {
+  const dbDate = localToDBDate(date);
+  const { data, error } = await supabase
+    .from('quiz_answers')
+    .select('*')
+    .eq('user_id', userId)
+    .eq('date', dbDate)
+    .maybeSingle();
+
+  if (error) {
+    console.error('Error fetching quiz for date:', error);
+    return null;
+  }
+
+  if (!data) return null;
+
+  return {
+    id: data.id,
+    userId: data.user_id,
+    date: data.date,
+    answers: data.answers as any[],
+    quizScore: data.quiz_score,
+    createdAt: data.created_at,
+  };
+}
+
 export async function saveQuizAnswer(answer: QuizAnswer): Promise<void> {
   const { error } = await supabase
     .from('quiz_answers')

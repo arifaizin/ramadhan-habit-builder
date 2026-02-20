@@ -14,6 +14,7 @@ import {
   getBadges,
   checkAndUnlockBadges,
   getTodayQuiz,
+  getQuizForDate,
   saveQuizAnswer,
   getTodayDate,
   type Badge,
@@ -45,6 +46,7 @@ export default function Dashboard() {
   const [checkedActivities, setCheckedActivities] = useState<string[]>([]);
   const [activityNotes, setActivityNotes] = useState<Record<string, string>>({});
   const [selectedScore, setSelectedScore] = useState(0);
+  const [selectedQuizScore, setSelectedQuizScore] = useState(0);
   const [totalPoints, setTotalPoints] = useState(0);
   const [streak, setStreak] = useState({ currentStreak: 0, earnedBonuses: [] as number[] });
   const [badges, setBadges] = useState<Badge[]>([]);
@@ -74,6 +76,9 @@ export default function Dashboard() {
       setSelectedScore(0);
       setHasCheckedInSelected(false);
     }
+
+    const quizForDate = await getQuizForDate(user.id, date);
+    setSelectedQuizScore(quizForDate ? quizForDate.quizScore : 0);
   }, [user]);
 
   // Load data on mount
@@ -200,6 +205,7 @@ export default function Dashboard() {
 
       setQuizCompleted(true);
       setQuizAnswers(answers);
+      setSelectedQuizScore(score);
 
       const newTotal = await getTotalScore(user.id);
       setTotalPoints(newTotal);
@@ -335,7 +341,7 @@ export default function Dashboard() {
         {/* Score Summary */}
         <div className="grid grid-cols-2 gap-4 animate-fade-in" style={{ animationDelay: '0.1s' }}>
           <div className="card-elevated p-4 text-center">
-            <p className="text-2xl font-bold text-primary">{hasCheckedInSelected ? selectedScore : activityScore}</p>
+            <p className="text-2xl font-bold text-primary">{(hasCheckedInSelected ? selectedScore : activityScore) + selectedQuizScore}</p>
             <p className="text-xs text-muted-foreground mt-1">{scoreLabel}</p>
           </div>
           <div className="card-elevated p-4 text-center">
