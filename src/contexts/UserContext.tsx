@@ -7,6 +7,7 @@ export interface UserProfile {
   name: string;
   email: string;
   communityCode: string;
+  pseudonym?: string;
 }
 
 interface UserContextType {
@@ -14,6 +15,7 @@ interface UserContextType {
   isLoading: boolean;
   login: (email: string, password: string) => Promise<{ error: string | null }>;
   register: (name: string, email: string, password: string, communityCode: string) => Promise<{ error: string | null }>;
+  updateProfile: (data: { name?: string; pseudonym?: string }) => Promise<{ error: string | null }>;
   logout: () => Promise<void>;
 }
 
@@ -25,6 +27,7 @@ function mapSupabaseUser(supaUser: SupabaseUser): UserProfile {
     name: supaUser.user_metadata?.name || '',
     email: supaUser.email || '',
     communityCode: supaUser.user_metadata?.community_code || '',
+    pseudonym: supaUser.user_metadata?.pseudonym || '',
   };
 }
 
@@ -86,13 +89,48 @@ export function UserProvider({ children }: { children: ReactNode }) {
     return { error: null };
   };
 
+  const updateProfile = async (data: { name?: string; pseudonym?: string }): Promise<{ error: string | null }> => {
+    try {
+      // Update auth metadata
+      const { error: authError } = await supabase.auth.updateUser({
+        data: {
+          ...user,
+          ...data
+        }
+      });
+
+      if (authError) throw authError;
+
+      // Update profiles table
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .update({
+          name: data.name,
+          pseudonym: data.pseudonym
+        })
+        .eq('id', user?.id);
+
+      if (profileError) throw profileError;
+
+      // Update local state
+      if (user) {
+        setUser({ ...user, ...data });
+      }
+
+      return { error: null };
+    } catch (error: any) {
+      console.error('Update profile error:', error);
+      return { error: error.message };
+    }
+  };
+
   const logout = async () => {
     await supabase.auth.signOut();
     setUser(null);
   };
 
   return (
-    <UserContext.Provider value={{ user, isLoading, login, register, logout }}>
+    <UserContext.Provider value={{ user, isLoading, login, register, updateProfile, logout }}>
       {children}
     </UserContext.Provider>
   );

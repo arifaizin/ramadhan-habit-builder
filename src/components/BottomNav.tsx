@@ -1,4 +1,4 @@
-import { Home, Trophy } from 'lucide-react';
+import { Home, Trophy, User } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 
@@ -18,6 +18,12 @@ export const BottomNav = () => {
             label: 'Peringkat',
             icon: Trophy,
             path: '/leaderboard',
+        },
+        {
+            id: 'profile',
+            label: 'Profil',
+            icon: User,
+            path: '/profile',
         },
     ];
 

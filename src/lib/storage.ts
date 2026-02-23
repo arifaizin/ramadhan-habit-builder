@@ -8,6 +8,7 @@ export type User = {
   name: string;
   email: string | null;
   communityCode: string | null;
+  pseudonym: string | null;
   createdAt: string;
 };
 
@@ -61,6 +62,7 @@ export async function getCurrentUser(): Promise<User | null> {
     name: profile.name,
     email: profile.email,
     communityCode: profile.community_code,
+    pseudonym: profile.pseudonym,
     createdAt: profile.created_at,
   };
 }
