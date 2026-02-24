@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { User, Shield, ChevronLeft, Save } from 'lucide-react';
+import { User, Shield, ChevronLeft, Save, RefreshCw } from 'lucide-react';
 import { useUser } from '@/contexts/UserContext';
+import { generatePseudonym } from '@/lib/pseudonymGenerator';
 import { BottomNav } from '@/components/BottomNav';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -27,7 +28,12 @@ export default function Profile() {
 
         try {
             const { error } = await updateProfile({ name, pseudonym });
-            if (error) throw new Error(error);
+            if (error) {
+                if (error.includes('unique') || error.includes('pseudonym_key')) {
+                    throw new Error('Nama samaran ini sudah digunakan oleh orang lain. Silakan pilih nama lain.');
+                }
+                throw new Error(error);
+            }
             toast.success('Profil berhasil diperbarui');
         } catch (error: any) {
             console.error('Error updating profile:', error);
@@ -81,18 +87,29 @@ export default function Profile() {
 
                         <div className="space-y-2">
                             <Label htmlFor="pseudonym" className="text-sm font-medium">Nama Samaran (Pseudonym)</Label>
-                            <div className="relative">
-                                <Shield className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                                <Input
-                                    id="pseudonym"
-                                    value={pseudonym}
-                                    onChange={(e) => setPseudonym(e.target.value)}
-                                    placeholder="Contoh: Hamba Allah, Fulan, dsb."
-                                    className="pl-10"
-                                />
+                            <div className="flex gap-2">
+                                <div className="relative flex-1">
+                                    <Shield className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                                    <Input
+                                        id="pseudonym"
+                                        value={pseudonym}
+                                        onChange={(e) => setPseudonym(e.target.value)}
+                                        placeholder="Contoh: Hamba Allah, Fulan, dsb."
+                                        className="pl-10"
+                                    />
+                                </div>
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="icon"
+                                    onClick={() => setPseudonym(generatePseudonym())}
+                                    title="Acak Nama"
+                                >
+                                    <RefreshCw className="w-4 h-4" />
+                                </Button>
                             </div>
                             <p className="text-[10px] text-muted-foreground">
-                                Nama ini akan ditampilkan di papan peringkat (leaderboard) untuk pengguna lain.
+                                Nama ini akan ditampilkan di papan peringkat (leaderboard) untuk pengguna lain. Klik ikon putar untuk mendapatkan ide nama motivatif.
                             </p>
                         </div>
 
